@@ -21,8 +21,7 @@
 <script>
 const PASS = 'golbahar1403';
 function go() {
-  var val = document.getElementById('pass').value;
-  if (val === PASS) {
+  if (document.getElementById('pass').value === PASS) {
     sessionStorage.setItem('golbahar_admin_ok', '1');
     location.href = 'index.html#admin';
   } else {
@@ -33,7 +32,6 @@ document.getElementById('btn').onclick = function(e){ e.preventDefault(); go(); 
 document.getElementById('pass').addEventListener('keydown', function(e){
   if (e.key === 'Enter') { e.preventDefault(); go(); }
 });
-// هر بار رمز بخواه — ورود خودکار از session حذف شد
 </script>
 </body>
 </html>
