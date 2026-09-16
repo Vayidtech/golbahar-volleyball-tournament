@@ -1,21 +1,28 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مدیریت | مسابقات والیبال گلبهار</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
-  <style>body{font-family:Vazirmatn,Tahoma,sans-serif}</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مدیریت | مسابقات والیبال گلبهار</title>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="js/admin-data.js"></script>
 </head>
-<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl max-w-md w-full p-6 text-center shadow-2xl">
-    <div class="text-4xl mb-3">🏐</div>
-    <h1 class="text-xl font-black mb-2">پنل مدیریت گلبهار</h1>
-    <p class="text-sm text-slate-600 mb-4">برای ورود به مدیریت، از صفحه اصلی روی آیکون قفل بزنید یا از دکمه زیر وارد شوید.</p>
-    <a href="index.html" class="inline-block w-full py-3 bg-emerald-600 text-white rounded-xl font-bold mb-2">ورود به سایت و مدیریت</a>
-    <p class="text-xs text-slate-400 mt-3">رمز ادمین: <b>golbahar1403</b></p>
-    <p class="text-xs text-slate-500 mt-4 leading-relaxed">نسخه کامل چندصفحه‌ای در فایل ZIP پروژه است. اگر Vercel را به این ریپو وصل کرده‌اید، صفحه اصلی (<code>index.html</code>) همه امکانات را دارد.</p>
-  </div>
+<body style="font-family:Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc">
+<div id="boot" style="text-align:center;color:#64748b">
+<div style="width:40px;height:40px;border:3px solid #10b981;border-top-color:transparent;border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite"></div>
+در حال بارگذاری...
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script>
+(function(){
+  try {
+    var bin = Uint8Array.from(atob(window.__GB_B64), function(c){return c.charCodeAt(0);});
+    var html = pako.ungzip(bin, {to:"string"});
+    document.open(); document.write(html); document.close();
+  } catch(e) {
+    document.getElementById("boot").innerHTML = "خطا: " + e.message;
+  }
+})();
+</script>
 </body>
 </html>
