@@ -39,6 +39,10 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- تقویم شمسی (Jalali Datepicker) -->
+    <link rel="stylesheet" href="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+    <script src="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -101,6 +105,13 @@
         @media (prefers-reduced-motion: reduce) {
             .news-marquee { animation: none; }
         }
+        /* تقویم شمسی روی همه لایه‌ها */
+        .jdp-container, jdp-container, .jalali-datepicker, [class*="jdp"] {
+            z-index: 9999 !important;
+        }
+        .jdp-date-input {
+            min-width: 8rem;
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col antialiased selection:bg-brand-500 selection:text-white">
@@ -135,6 +146,9 @@
 
                 <!-- Navigation Tabs & Admin Switcher -->
                 <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <span id="cloud-status" class="hidden sm:inline text-[10px] sm:text-xs font-medium px-2 py-1 rounded-lg bg-slate-50 border border-slate-100" title="">
+                        <span class="text-slate-400"><i class="fa-solid fa-cloud"></i> ...</span>
+                    </span>
                     <button id="nav-btn-public" onclick="switchMainTab('public')" class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 bg-brand-500 text-white shadow-sm">
                         <i class="fa-solid fa-users"></i>
                         <span class="hidden sm:inline">صفحه عمومی</span>
@@ -418,8 +432,8 @@
                         <i class="fa-solid fa-clock text-brand-600"></i>
                         <span>برنامه‌ریزی تاریخ و ساعت بازی‌ها</span>
                     </h3>
-                    <p class="text-xs text-slate-500 mb-2">تاریخ شمسی را به صورت <b>۱۴۰۴/۰۶/۲۵</b> بنویسید (یا از پیشنهاد امروز استفاده کنید). ساعت را با انتخابگر ۲۴ ساعته یا دستی وارد کنید.</p>
-                    <p class="text-xs text-emerald-600 mb-4">همه تغییرات بلافاصله در localStorage ذخیره می‌شوند و با رفرش از بین نمی‌روند.</p>
+                    <p class="text-xs text-slate-500 mb-2">روی فیلد تاریخ کلیک کنید تا <b>تقویم شمسی</b> باز شود. ساعت را هم با انتخابگر ۲۴ ساعته تنظیم کنید.</p>
+                    <p class="text-xs text-emerald-600 mb-4">با تنظیم Firebase، تغییرات برای همه گوشی‌ها به‌صورت زنده ذخیره می‌شود.</p>
 
                     <div id="admin-schedule-list" class="space-y-3">
                         <!-- Populated with match timing editors -->
@@ -565,9 +579,30 @@
     <!-- ========================================================================= -->
     <script>
         // State Store Definition
-        const ADMIN_FIXED_PASS = "golbahar1403"; // Standard fixed admin pass
+        const ADMIN_FIXED_PASS = "golbahar1403";
         let isAdminLoggedIn = false;
         let activePublicMatchTab = 'today';
+
+        // ============================================================
+        // 🔥 تنظیمات Firebase — برای ذخیره مشترک بین همه گوشی‌ها
+        // از Firebase Console این مقادیر را کپی کنید.
+        // اگر خالی بماند فقط روی همان دستگاه (localStorage) ذخیره می‌شود.
+        // ============================================================
+        const FIREBASE_CONFIG = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+        // مسیر سند مشترک در Firestore
+        const FIRESTORE_DOC_PATH = { collection: "golbahar", docId: "tournament_live" };
+
+        let firebaseApp = null;
+        let firebaseDb = null;
+        let firebaseReady = false;
+        let applyingRemote = false; // جلوگیری از حلقه ذخیره هنگام دریافت از سرور
 
         // Default Tournament Configuration
         let appState = {
@@ -576,10 +611,10 @@
                 numGroups: 5,
                 teamsPerGroup: 4
             },
-            organizerLogo: null, // base64 or URL of organizer logo
-            teams: [], // { id, name, logo, teamPhoto, groupIndex }
-            matches: [], // { id, stage, teamAId, teamBId, groupIndex, dateJalali, time24, court, setScores: [{a,b}], isFinished, winnerId }
-            news: [], // { id, title, body, date }
+            organizerLogo: null,
+            teams: [],
+            matches: [],
+            news: [],
             lastUpdated: Date.now()
         };
 
@@ -593,17 +628,24 @@
         ];
 
         // Persian Date Utilities (Intl Native Jalali Support)
+        function toEnglishDigits(str) {
+            if (str == null) return '';
+            return str.toString()
+                .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+        }
+
         function getTodayJalaliString() {
             try {
                 const now = new Date();
                 const formatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' });
                 const parts = formatter.formatToParts(now);
-                const year = parts.find(p => p.type === 'year').value;
-                const month = parts.find(p => p.type === 'month').value;
-                const day = parts.find(p => p.type === 'day').value;
+                const year = toEnglishDigits(parts.find(p => p.type === 'year').value);
+                const month = toEnglishDigits(parts.find(p => p.type === 'month').value).padStart(2, '0');
+                const day = toEnglishDigits(parts.find(p => p.type === 'day').value).padStart(2, '0');
                 return `${year}/${month}/${day}`;
             } catch(e) {
-                return "1403/07/01";
+                return "1404/01/01";
             }
         }
 
@@ -617,8 +659,12 @@
             initApp();
         });
 
+        function isFirebaseConfigured() {
+            return FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId;
+        }
+
         function initApp() {
-            // Load state from localStorage — never wipe existing data on refresh
+            // اول از localStorage بارگذاری (نمایش سریع)، بعد اگر Firebase باشد از سرور همگام می‌شود
             const saved = localStorage.getItem('golbahar_volleyball_state');
             if (saved) {
                 try {
@@ -633,25 +679,27 @@
                         initDefaultMockState();
                     }
                 } catch (e) {
-                    console.warn('localStorage parse error', e);
                     initDefaultMockState();
                 }
             } else {
                 initDefaultMockState();
             }
 
-            setupFirebaseSync();
             renderAllViews();
             updateOrganizerLogoUI();
             updateNewsMarquee();
+            updateCloudStatusUI();
 
-            setTimeout(() => {
-                const loader = document.getElementById('app-loading');
-                if (loader) {
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.style.display = 'none', 300);
-                }
-            }, 250);
+            // اتصال ابری برای اشتراک بین همه گوشی‌ها
+            setupFirebaseSync().finally(() => {
+                setTimeout(() => {
+                    const loader = document.getElementById('app-loading');
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.style.display = 'none', 300);
+                    }
+                }, 200);
+            });
         }
 
         function initDefaultMockState() {
@@ -676,38 +724,46 @@
                     groupIndex: gIndex
                 });
             }
-            // Persist immediately so refresh keeps data
             try {
                 localStorage.setItem('golbahar_volleyball_state', JSON.stringify(appState));
-            } catch (e) {
-                console.warn('localStorage write failed', e);
-            }
+            } catch (e) {}
         }
 
         function saveAppState() {
+            if (applyingRemote) return;
             appState.lastUpdated = Date.now();
             try {
                 localStorage.setItem('golbahar_volleyball_state', JSON.stringify(appState));
             } catch (e) {
-                // Quota exceeded (often large base64 images) — try without heavy images
-                console.warn('localStorage full, retrying lighter save', e);
                 try {
                     const light = JSON.parse(JSON.stringify(appState));
                     if (light.teams) light.teams.forEach(t => {
-                        if (t.logo && t.logo.length > 50000) t.logo = DEFAULT_LOGOS[0];
-                        if (t.teamPhoto && t.teamPhoto.length > 80000) t.teamPhoto = null;
+                        if (t.logo && t.logo.length > 40000) t.logo = DEFAULT_LOGOS[0];
+                        if (t.teamPhoto && t.teamPhoto.length > 60000) t.teamPhoto = null;
                     });
-                    if (light.organizerLogo && light.organizerLogo.length > 80000) light.organizerLogo = null;
+                    if (light.organizerLogo && light.organizerLogo.length > 60000) light.organizerLogo = null;
                     localStorage.setItem('golbahar_volleyball_state', JSON.stringify(light));
-                    alert('حجم عکس‌ها زیاد بود؛ برخی تصاویر ذخیره نشدند. لطفاً عکس‌های کوچک‌تر آپلود کنید.');
-                } catch (e2) {
-                    alert('خطا در ذخیره. حافظه مرورگر پر است. داده را Export کنید.');
-                }
+                } catch (e2) {}
             }
             syncToFirebase();
             renderAllViews();
             updateOrganizerLogoUI();
             updateNewsMarquee();
+            updateCloudStatusUI();
+        }
+
+        function updateCloudStatusUI() {
+            const el = document.getElementById('cloud-status');
+            if (!el) return;
+            if (!isFirebaseConfigured()) {
+                el.innerHTML = '<span class="text-amber-600"><i class="fa-solid fa-cloud"></i> فقط این دستگاه</span>';
+                el.title = 'برای اشتراک بین همه گوشی‌ها، Firebase را تنظیم کنید';
+            } else if (firebaseReady) {
+                el.innerHTML = '<span class="text-emerald-600"><i class="fa-solid fa-cloud"></i> آنلاین — همه می‌بینند</span>';
+                el.title = 'داده‌ها روی سرور ذخیره می‌شوند';
+            } else {
+                el.innerHTML = '<span class="text-slate-500"><i class="fa-solid fa-cloud"></i> در حال اتصال...</span>';
+            }
         }
 
         function updateOrganizerLogoUI() {
@@ -734,52 +790,94 @@
             el.textContent = text + '   ❖   ' + text; // duplicate for smooth loop
         }
 
-        // Firebase Sync Mechanism
+        // Firebase Sync — همه گوشی‌ها یک داده مشترک می‌بینند
         function setupFirebaseSync() {
-            try {
-                if (window.FirebaseModule && typeof __firebase_config !== 'undefined') {
-                    const { initializeApp, getFirestore, doc, onSnapshot, getAuth, signInAnonymously } = window.FirebaseModule;
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    const db = getFirestore(app);
-                    const auth = getAuth(app);
-
-                    signInAnonymously(auth).then(() => {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'golbahar-volleyball';
-                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament_state');
-                        
-                        onSnapshot(docRef, (snapshot) => {
-                            if (snapshot.exists()) {
-                                const remoteState = snapshot.data();
-                                if (remoteState && remoteState.lastUpdated > appState.lastUpdated) {
-                                    appState = remoteState;
-                                    renderAllViews();
-                                }
-                            }
-                        }, (err) => console.log('Firestore snapshot fallback to LocalStorage'));
-                    });
+            return new Promise((resolve) => {
+                if (!isFirebaseConfigured()) {
+                    console.info('Firebase تنظیم نشده — فقط localStorage');
+                    updateCloudStatusUI();
+                    resolve(false);
+                    return;
                 }
-            } catch(e) {
-                // Smooth fallback to local storage
-            }
+                // صبر برای لود شدن SDK
+                const tryInit = (attempts) => {
+                    if (!window.FirebaseModule) {
+                        if (attempts < 20) return setTimeout(() => tryInit(attempts + 1), 150);
+                        console.warn('Firebase SDK لود نشد');
+                        updateCloudStatusUI();
+                        return resolve(false);
+                    }
+                    try {
+                        const { initializeApp, getFirestore, doc, onSnapshot, setDoc, getAuth, signInAnonymously } = window.FirebaseModule;
+                        firebaseApp = initializeApp(FIREBASE_CONFIG);
+                        firebaseDb = getFirestore(firebaseApp);
+                        const auth = getAuth(firebaseApp);
+
+                        signInAnonymously(auth).then(() => {
+                            const docRef = doc(firebaseDb, FIRESTORE_DOC_PATH.collection, FIRESTORE_DOC_PATH.docId);
+                            onSnapshot(docRef, (snapshot) => {
+                                if (snapshot.exists()) {
+                                    const remote = snapshot.data();
+                                    if (remote && remote.lastUpdated && remote.lastUpdated > (appState.lastUpdated || 0)) {
+                                        applyingRemote = true;
+                                        appState = Object.assign({}, appState, remote);
+                                        if (!Array.isArray(appState.teams)) appState.teams = [];
+                                        if (!Array.isArray(appState.matches)) appState.matches = [];
+                                        if (!Array.isArray(appState.news)) appState.news = [];
+                                        try {
+                                            localStorage.setItem('golbahar_volleyball_state', JSON.stringify(appState));
+                                        } catch (e) {}
+                                        renderAllViews();
+                                        updateOrganizerLogoUI();
+                                        updateNewsMarquee();
+                                        applyingRemote = false;
+                                    }
+                                }
+                                firebaseReady = true;
+                                updateCloudStatusUI();
+                            }, (err) => {
+                                console.warn('Firestore listener error', err);
+                                firebaseReady = false;
+                                updateCloudStatusUI();
+                            });
+                            firebaseReady = true;
+                            updateCloudStatusUI();
+                            // اگر سند خالی است، وضعیت فعلی را یک‌بار بفرست
+                            setTimeout(() => syncToFirebase(), 800);
+                            resolve(true);
+                        }).catch((err) => {
+                            console.warn('Firebase auth error', err);
+                            updateCloudStatusUI();
+                            resolve(false);
+                        });
+                    } catch (e) {
+                        console.warn('Firebase init error', e);
+                        updateCloudStatusUI();
+                        resolve(false);
+                    }
+                };
+                tryInit(0);
+            });
         }
 
         function syncToFirebase() {
+            if (!isFirebaseConfigured() || !firebaseDb || applyingRemote) return;
             try {
-                if (window.FirebaseModule && typeof __firebase_config !== 'undefined') {
-                    const { initializeApp, getFirestore, doc, setDoc, getAuth } = window.FirebaseModule;
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    const db = getFirestore(app);
-                    const auth = getAuth(app);
-
-                    if (auth.currentUser) {
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'golbahar-volleyball';
-                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament_state');
-                        setDoc(docRef, appState, { merge: true });
-                    }
+                const { doc, setDoc } = window.FirebaseModule;
+                const docRef = doc(firebaseDb, FIRESTORE_DOC_PATH.collection, FIRESTORE_DOC_PATH.docId);
+                // بدون فیلدهای خیلی بزرگ که محدودیت ۱ مگابایت Firestore را بشکنند
+                const payload = JSON.parse(JSON.stringify(appState));
+                if (payload.teams) {
+                    payload.teams.forEach(t => {
+                        if (t.teamPhoto && t.teamPhoto.length > 100000) t.teamPhoto = null;
+                        if (t.logo && t.logo.length > 80000) t.logo = DEFAULT_LOGOS[0];
+                    });
                 }
-            } catch(e) {}
+                if (payload.organizerLogo && payload.organizerLogo.length > 100000) payload.organizerLogo = null;
+                setDoc(docRef, payload, { merge: true }).catch(err => console.warn('Firestore write', err));
+            } catch (e) {
+                console.warn('syncToFirebase', e);
+            }
         }
 
 
@@ -849,6 +947,10 @@
                     sec.classList.add('hidden');
                 }
             });
+            if (sub === 'schedule') {
+                renderAdminScheduleList();
+                setTimeout(initJalaliPickers, 50);
+            }
         }
 
 
@@ -889,11 +991,11 @@
             let filtered = [...appState.matches];
             
             if (activePublicMatchTab === 'today') {
-                filtered = filtered.filter(m => m.dateJalali === todayStr);
+                filtered = filtered.filter(m => toEnglishDigits(m.dateJalali || '') === todayStr);
             } else if (activePublicMatchTab === 'upcoming') {
-                filtered = filtered.filter(m => !m.isFinished && m.dateJalali >= todayStr);
+                filtered = filtered.filter(m => !m.isFinished && toEnglishDigits(m.dateJalali || '9999') >= todayStr);
             } else if (activePublicMatchTab === 'past') {
-                filtered = filtered.filter(m => m.isFinished);
+                filtered = filtered.filter(m => m.isFinished || (m.dateJalali && toEnglishDigits(m.dateJalali) < todayStr));
             }
 
             document.getElementById('matches-count-tag').textContent = `${convertToPersianDigits(filtered.length)} مسابقه`;
@@ -1521,7 +1623,7 @@
         }
 
 
-        // --- Admin Schedule Calendar Controls ---
+        // --- Admin Schedule Calendar Controls (تقویم شمسی) ---
         function renderAdminScheduleList() {
             const container = document.getElementById('admin-schedule-list');
             if (appState.matches.length === 0) {
@@ -1535,6 +1637,7 @@
                 const teamA = appState.teams.find(t => t.id === m.teamAId) || { name: 'تیم A' };
                 const teamB = appState.teams.find(t => t.id === m.teamBId) || { name: 'تیم B' };
                 const stageLabel = getStageLabel(m.stage, m.groupIndex);
+                const dateVal = m.dateJalali || '';
 
                 return `
                     <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -1548,9 +1651,13 @@
                         <div class="flex flex-wrap items-end gap-2 w-full sm:w-auto">
                             <div>
                                 <label class="text-[10px] text-slate-500 block mb-0.5">تاریخ شمسی</label>
-                                <input type="text" value="${m.dateJalali || ''}" placeholder="${todayJ}" onchange="updateMatchSchedule('${m.id}', 'dateJalali', this.value)" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center font-mono w-28 focus:ring-2 focus:ring-brand-500 outline-none">
+                                <input type="text" data-jdp data-jdp-only-date readonly
+                                    value="${dateVal}"
+                                    placeholder="انتخاب از تقویم"
+                                    data-match-id="${m.id}"
+                                    class="jdp-date-input px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center font-mono w-32 bg-white cursor-pointer focus:ring-2 focus:ring-brand-500 outline-none">
                             </div>
-                            <button type="button" onclick="updateMatchSchedule('${m.id}', 'dateJalali', '${todayJ}')" class="px-2 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg text-[10px] font-bold">امروز</button>
+                            <button type="button" onclick="setMatchDateToday('${m.id}')" class="px-2 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg text-[10px] font-bold">امروز</button>
                             <div>
                                 <label class="text-[10px] text-slate-500 block mb-0.5">ساعت ۲۴ساعته</label>
                                 <input type="time" value="${m.time24 || '18:00'}" onchange="updateMatchSchedule('${m.id}', 'time24', this.value)" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center font-mono w-28 focus:ring-2 focus:ring-brand-500 outline-none">
@@ -1559,11 +1666,47 @@
                     </div>
                 `;
             }).join('');
+
+            // فعال‌سازی تقویم شمسی روی فیلدهای جدید
+            initJalaliPickers();
+        }
+
+        function initJalaliPickers() {
+            if (typeof jalaliDatepicker === 'undefined') return;
+            try {
+                jalaliDatepicker.startWatch({
+                    time: false,
+                    hasSecond: false,
+                    hideAfterChange: true,
+                    useDropDownYears: true,
+                    format: 'YYYY/MM/DD',
+                    persianDigits: false
+                });
+            } catch (e) {
+                console.warn('jalaliDatepicker', e);
+            }
+            // ذخیره بعد از انتخاب تاریخ
+            document.querySelectorAll('.jdp-date-input').forEach(inp => {
+                inp.addEventListener('change', function () {
+                    const id = this.getAttribute('data-match-id');
+                    if (id && this.value) updateMatchSchedule(id, 'dateJalali', this.value);
+                });
+                inp.addEventListener('jdp:change', function () {
+                    const id = this.getAttribute('data-match-id');
+                    if (id && this.value) updateMatchSchedule(id, 'dateJalali', this.value);
+                });
+            });
+        }
+
+        function setMatchDateToday(matchId) {
+            const todayJ = getTodayJalaliString();
+            updateMatchSchedule(matchId, 'dateJalali', todayJ);
         }
 
         function updateMatchSchedule(matchId, key, val) {
             const m = appState.matches.find(x => x.id === matchId);
             if (m) {
+                if (key === 'dateJalali') val = toEnglishDigits(val).replace(/-/g, '/');
                 m[key] = val;
                 saveAppState();
             }
