@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>مدیریت | مسابقات والیبال گلبهار</title>
 <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-<script src="js/admin-data.js"></script>
 </head>
 <body style="font-family:Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc">
 <div id="boot" style="text-align:center;color:#64748b">
@@ -14,13 +13,18 @@
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <script>
-(function(){
+(async function () {
   try {
-    var bin = Uint8Array.from(atob(window.__GB_B64), function(c){return c.charCodeAt(0);});
-    var html = pako.ungzip(bin, {to:"string"});
+    var base = 'js/';
+    var parts = await Promise.all([0,1,2].map(function(i){
+      return fetch(base + 'admin' + i + '.b64?t=' + Date.now()).then(function(r){ return r.text(); });
+    }));
+    var b64 = parts.join('').replace(/\s+/g,'');
+    var bin = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+    var html = pako.ungzip(bin, { to: 'string' });
     document.open(); document.write(html); document.close();
-  } catch(e) {
-    document.getElementById("boot").innerHTML = "خطا: " + e.message;
+  } catch (e) {
+    document.getElementById('boot').innerHTML = 'خطا: ' + e.message + '<br>صفحه را رفرش کنید';
   }
 })();
 </script>
