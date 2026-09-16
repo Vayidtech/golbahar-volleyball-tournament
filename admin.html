@@ -13,24 +13,27 @@
   <div class="text-3xl mb-2">🔒</div>
   <h1 class="text-lg font-black mb-1">ورود مدیریت</h1>
   <p class="text-xs text-slate-500 mb-4">مسابقات والیبال گلبهار — نتایج زنده</p>
-  <input type="password" id="pass" placeholder="رمز عبور" class="w-full px-3 py-2.5 border rounded-xl text-center mb-2 tracking-widest">
+  <input type="password" id="pass" placeholder="رمز عبور" autocomplete="current-password" class="w-full px-3 py-2.5 border rounded-xl text-center mb-2 tracking-widest">
   <div id="err" class="text-xs text-rose-600 hidden mb-2">رمز اشتباه است</div>
-  <button id="btn" class="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm">ورود</button>
+  <button type="button" id="btn" class="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm">ورود</button>
   <a href="index.html" class="block mt-4 text-xs text-slate-500">بازگشت به سایت</a>
 </div>
 <script>
 const PASS = 'golbahar1403';
-function enterAdmin() {
-  sessionStorage.setItem('golbahar_admin_ok', '1');
-  location.href = 'index.html#admin';
-}
 function go() {
-  if (document.getElementById('pass').value === PASS) enterAdmin();
-  else document.getElementById('err').classList.remove('hidden');
+  var val = document.getElementById('pass').value;
+  if (val === PASS) {
+    sessionStorage.setItem('golbahar_admin_ok', '1');
+    location.href = 'index.html#admin';
+  } else {
+    document.getElementById('err').classList.remove('hidden');
+  }
 }
-document.getElementById('btn').onclick = go;
-document.getElementById('pass').addEventListener('keydown', function(e){ if(e.key==='Enter') go(); });
-if (sessionStorage.getItem('golbahar_admin_ok') === '1') enterAdmin();
+document.getElementById('btn').onclick = function(e){ e.preventDefault(); go(); };
+document.getElementById('pass').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { e.preventDefault(); go(); }
+});
+// هر بار رمز بخواه — ورود خودکار از session حذف شد
 </script>
 </body>
 </html>
