@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>مسابقات والیبال گلبهار</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 </head>
 <body style="font-family:Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc">
 <div id="boot" style="text-align:center;color:#64748b">
@@ -21,14 +22,13 @@
     var html = data.html;
     if (!html) throw new Error('empty page');
 
-    // Ensure app boots even if DOMContentLoaded already fired
-    var bootInject = "<script>(function(){function go(){try{if(typeof initApp==='function')initApp();}catch(e){console.error(e);}setTimeout(function(){var L=document.getElementById('app-loading');if(L){L.style.opacity='0';setTimeout(function(){L.style.display='none';},200);}},300);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();<\/script>";
+    var bootInject = "<script>(function(){function hide(){var L=document.getElementById('app-loading');if(L)L.remove();}function go(){try{if(typeof initApp==='function')initApp();}catch(e){console.error(e);}hide();setTimeout(hide,500);setTimeout(hide,1500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();<\/script>";
     if (html.indexOf('</body>') !== -1) html = html.replace('</body>', bootInject + '</body>');
     else html += bootInject;
 
     if (location.hash === '#admin' && sessionStorage.getItem('golbahar_admin_ok') === '1') {
       html = html.replace('</body>',
-        '<script>setTimeout(function(){try{isAdminLoggedIn=true;var p=document.getElementById("view-public");var a=document.getElementById("view-admin");if(p)p.classList.add("hidden");if(a)a.classList.remove("hidden");}catch(e){}},900);<\/script></body>');
+        '<script>setTimeout(function(){try{isAdminLoggedIn=true;var p=document.getElementById(\"view-public\");var a=document.getElementById(\"view-admin\");if(p)p.classList.add(\"hidden\");if(a)a.classList.remove(\"hidden\");}catch(e){}},600);<\/script></body>');
     }
 
     document.open();
