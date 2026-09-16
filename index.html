@@ -4,43 +4,127 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>مسابقات والیبال گلبهار</title>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>body{font-family:Vazirmatn,Tahoma,sans-serif;background:#f8fafc}.hidden{display:none!important}</style>
 </head>
-<body style="font-family:Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc">
-<div id="boot" style="text-align:center;color:#64748b">
-<div style="width:40px;height:40px;border:3px solid #10b981;border-top-color:transparent;border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite"></div>
-در حال بارگذاری...
+<body class="min-h-screen text-slate-800">
+<header class="sticky top-0 z-30 bg-white border-b shadow-sm">
+<div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+<div class="flex items-center gap-2 font-black text-base sm:text-lg">
+<span class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center"><i class="fa-solid fa-volleyball"></i></span>
+مسابقات والیبال گلبهار
 </div>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<div class="flex gap-2">
+<button type="button" id="btn-public" class="px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white">عمومی</button>
+<button type="button" id="btn-admin" class="px-3 py-1.5 rounded-lg text-sm border">مدیریت</button>
+</div></div></header>
+<main class="max-w-5xl mx-auto px-4 py-4 space-y-4">
+<section id="view-public" class="space-y-4">
+<div class="bg-white rounded-2xl p-4 border shadow-sm">
+<h2 class="font-bold mb-3"><i class="fa-solid fa-calendar-day text-emerald-600"></i> بازی‌ها</h2>
+<div id="pub-matches" class="space-y-2 text-sm"></div></div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm">
+<h2 class="font-bold mb-3"><i class="fa-solid fa-table text-emerald-600"></i> جدول گروه‌ها</h2>
+<div id="pub-tables" class="grid md:grid-cols-2 gap-4"></div></div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm">
+<h2 class="font-bold mb-3"><i class="fa-solid fa-bullhorn text-sky-600"></i> اخبار</h2>
+<div id="pub-news" class="space-y-2 text-sm"></div></div>
+</section>
+<section id="view-admin" class="hidden space-y-4">
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm">حالت مدیریت — داده روی همین مرورگر ذخیره می‌شود. برای گوشی دیگر از خروجی JSON استفاده کنید.</div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm space-y-3">
+<h2 class="font-bold">تنظیمات</h2>
+<div class="grid grid-cols-3 gap-2">
+<div><label class="text-xs">تعداد تیم</label><input id="cfg-teams" type="number" min="2" value="20" class="w-full border rounded-lg px-2 py-1.5"></div>
+<div><label class="text-xs">تعداد گروه</label><input id="cfg-groups" type="number" min="1" value="5" class="w-full border rounded-lg px-2 py-1.5"></div>
+<div class="flex items-end"><button type="button" id="btn-save-cfg" class="w-full bg-emerald-600 text-white rounded-lg py-1.5 text-sm">ذخیره</button></div>
+</div></div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm space-y-3">
+<h2 class="font-bold">تیم‌ها (هر خط یک نام)</h2>
+<textarea id="teams-text" rows="8" class="w-full border rounded-xl p-2 text-sm" placeholder="تیم ۱"></textarea>
+<button type="button" id="btn-save-teams" class="bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm">ذخیره + قرعه‌کشی گروهی</button>
+</div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm space-y-3">
+<h2 class="font-bold">ثبت نتیجه</h2>
+<div id="admin-matches" class="space-y-2"></div></div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm space-y-3">
+<h2 class="font-bold">خبر</h2>
+<input id="news-title" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="عنوان">
+<textarea id="news-body" rows="2" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="متن"></textarea>
+<button type="button" id="btn-news" class="bg-sky-600 text-white rounded-lg px-4 py-2 text-sm">انتشار</button>
+</div>
+<div class="bg-white rounded-2xl p-4 border shadow-sm space-y-2">
+<h2 class="font-bold">پشتیبان</h2>
+<div class="flex flex-wrap gap-2">
+<button type="button" id="btn-export" class="border rounded-lg px-3 py-1.5 text-sm">خروجی JSON</button>
+<label class="border rounded-lg px-3 py-1.5 text-sm cursor-pointer">ورود JSON<input type="file" id="import-file" accept="application/json" class="hidden"></label>
+<button type="button" id="btn-logout" class="border border-rose-300 text-rose-600 rounded-lg px-3 py-1.5 text-sm">خروج</button>
+</div></div>
+</section>
+</main>
+<div id="auth-modal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+<div class="bg-white rounded-2xl p-6 w-full max-w-sm text-center space-y-3">
+<div class="text-2xl">🔒</div>
+<h3 class="font-black">ورود مدیریت</h3>
+<input type="password" id="auth-pass" class="w-full border rounded-xl px-3 py-2 text-center" placeholder="رمز">
+<p id="auth-err" class="hidden text-xs text-rose-600">رمز اشتباه</p>
+<button type="button" id="auth-go" class="w-full bg-emerald-600 text-white rounded-xl py-2 font-bold">ورود</button>
+<button type="button" id="auth-cancel" class="text-xs text-slate-500">انصراف</button>
+</div></div>
 <script>
-(async function () {
-  var URL = 'https://crudcrud.com/api/73da722827c243b5b94e42b09cafe988/page/6aaac1ddce962d03e8dd8334';
-  try {
-    var res = await fetch(URL + '?t=' + Date.now(), { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    var data = await res.json();
-    var html = data.html;
-    if (!html) throw new Error('empty page');
-
-    var bootInject = "<script>(function(){function hide(){var L=document.getElementById('app-loading');if(L)L.remove();}function go(){try{if(typeof initApp==='function')initApp();}catch(e){console.error(e);}hide();setTimeout(hide,500);setTimeout(hide,1500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();<\/script>";
-    if (html.indexOf('</body>') !== -1) html = html.replace('</body>', bootInject + '</body>');
-    else html += bootInject;
-
-    if (location.hash === '#admin' && sessionStorage.getItem('golbahar_admin_ok') === '1') {
-      html = html.replace('</body>',
-        '<script>setTimeout(function(){try{isAdminLoggedIn=true;var p=document.getElementById(\"view-public\");var a=document.getElementById(\"view-admin\");if(p)p.classList.add(\"hidden\");if(a)a.classList.remove(\"hidden\");}catch(e){}},600);<\/script></body>');
-    }
-
-    document.open();
-    document.write(html);
-    document.close();
-  } catch (e) {
-    document.getElementById('boot').innerHTML =
-      '<div style="color:#e11d48;font-weight:bold;margin-bottom:8px">خطا در بارگذاری</div>' +
-      '<div style="font-size:12px;margin-bottom:12px">' + e.message + '</div>' +
-      '<button onclick="location.reload()" style="padding:8px 16px;background:#059669;color:#fff;border:0;border-radius:8px;cursor:pointer">تلاش مجدد</button>';
-  }
-})();
+const PASS='golbahar1403',KEY='golbahar_volleyball_state';
+let isAdmin=false,state={config:{totalTeams:20,numGroups:5,teamsPerGroup:4},teams:[],matches:[],news:[],lastUpdated:0};
+function save(){state.lastUpdated=Date.now();try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}render();}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);if(p&&typeof p==='object'){state=Object.assign(state,p);if(!Array.isArray(state.teams))state.teams=[];if(!Array.isArray(state.matches))state.matches=[];if(!Array.isArray(state.news))state.news=[];}}}catch(e){}}
+function teamName(id){const t=state.teams.find(x=>x.id===id);return t?t.name:id;}
+function groupLetter(i){return String.fromCharCode(65+(i||0));}
+function standings(){
+const g={};state.teams.forEach(t=>{const gi=t.groupIndex||0;if(!g[gi])g[gi]=[];g[gi].push({id:t.id,name:t.name,p:0,w:0,l:0,sw:0,sl:0,pts:0});});
+state.matches.filter(m=>m.played&&m.stage==='group').forEach(m=>{
+const A=Object.values(g).flat().find(x=>x.id===m.a),B=Object.values(g).flat().find(x=>x.id===m.b);if(!A||!B)return;
+const sa=m.setsA|0,sb=m.setsB|0;A.sw+=sa;A.sl+=sb;B.sw+=sb;B.sl+=sa;A.p++;B.p++;
+if(sa>sb){A.w++;B.l++;A.pts+=(sa===2&&sb===0)?3:2;B.pts+=(sa===2&&sb===1)?1:0;}
+else{B.w++;A.l++;B.pts+=(sb===2&&sa===0)?3:2;A.pts+=(sb===2&&sa===1)?1:0;}
+});Object.keys(g).forEach(k=>g[k].sort((a,b)=>b.pts-a.pts||(b.sw-b.sl)-(a.sw-a.sl)||b.sw-a.sw));return g;
+}
+function genGroupMatches(){
+const by={};state.teams.forEach(t=>{const g=t.groupIndex||0;(by[g]=by[g]||[]).push(t);});
+const matches=[];Object.keys(by).forEach(gi=>{const arr=by[gi];for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++)
+matches.push({id:'m_'+gi+'_'+i+'_'+j,stage:'group',groupIndex:+gi,a:arr[i].id,b:arr[j].id,played:false,setsA:0,setsB:0});});
+state.matches=matches;
+}
+function render(){
+const pm=document.getElementById('pub-matches');
+if(!state.matches.length)pm.innerHTML='<p class="text-slate-400 text-sm">هنوز بازی‌ای نیست</p>';
+else pm.innerHTML=state.matches.map(m=>'<div class="flex justify-between items-center border rounded-xl px-3 py-2 '+(m.played?'bg-emerald-50':'')+'"><span class="flex-1 text-right">'+teamName(m.a)+'</span><span class="font-black px-2">'+(m.played?(m.setsA+'-'+m.setsB):'vs')+'</span><span class="flex-1 text-left">'+teamName(m.b)+'</span></div>').join('');
+const st=standings(),pt=document.getElementById('pub-tables'),keys=Object.keys(st).sort((a,b)=>a-b);
+if(!keys.length)pt.innerHTML='<p class="text-slate-400 text-sm">تیمی نیست</p>';
+else pt.innerHTML=keys.map(gi=>'<div class="border rounded-xl overflow-hidden"><div class="bg-slate-100 px-3 py-2 font-bold text-sm">گروه '+groupLetter(+gi)+'</div><table class="w-full text-xs"><thead><tr class="border-b"><th class="p-2 text-right">تیم</th><th>بازی</th><th>امتیاز</th><th>ست</th></tr></thead><tbody>'+st[gi].map((r,i)=>'<tr class="border-b"><td class="p-2">'+(i+1)+'. '+r.name+'</td><td class="text-center">'+r.p+'</td><td class="text-center font-bold">'+r.pts+'</td><td class="text-center">'+r.sw+':'+r.sl+'</td></tr>').join('')+'</tbody></table></div>').join('');
+const pn=document.getElementById('pub-news');
+pn.innerHTML=state.news.length?state.news.map(n=>'<div class="border rounded-xl p-3"><div class="font-bold">'+n.title+'</div><div class="text-slate-600 text-sm">'+(n.body||'')+'</div></div>').join(''):'<p class="text-slate-400">خبری نیست</p>';
+const am=document.getElementById('admin-matches');
+am.innerHTML=state.matches.map(m=>'<div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 text-sm"><span class="flex-1 min-w-[8rem]">'+teamName(m.a)+' vs '+teamName(m.b)+'</span><input type="number" min="0" max="2" value="'+(m.setsA||0)+'" data-id="'+m.id+'" data-side="a" class="w-14 border rounded px-1 py-1 set-in"><span>-</span><input type="number" min="0" max="2" value="'+(m.setsB||0)+'" data-id="'+m.id+'" data-side="b" class="w-14 border rounded px-1 py-1 set-in"><button type="button" data-save="'+m.id+'" class="bg-emerald-600 text-white rounded px-2 py-1 text-xs save-m">ثبت</button></div>').join('')||'<p class="text-slate-400 text-sm">ابتدا تیم‌ها را ذخیره کنید</p>';
+document.querySelectorAll('.save-m').forEach(btn=>{btn.onclick=()=>{const id=btn.getAttribute('data-save');const m=state.matches.find(x=>x.id===id);if(!m)return;const a=document.querySelector('.set-in[data-id="'+id+'"][data-side="a"]');const b=document.querySelector('.set-in[data-id="'+id+'"][data-side="b"]');m.setsA=parseInt(a.value)||0;m.setsB=parseInt(b.value)||0;m.played=(m.setsA>=2||m.setsB>=2);save();};});
+document.getElementById('teams-text').value=state.teams.map(t=>t.name).join('\n');
+document.getElementById('cfg-teams').value=state.config.totalTeams||20;
+document.getElementById('cfg-groups').value=state.config.numGroups||5;
+}
+function showPublic(){document.getElementById('view-public').classList.remove('hidden');document.getElementById('view-admin').classList.add('hidden');document.getElementById('btn-public').className='px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white';document.getElementById('btn-admin').className='px-3 py-1.5 rounded-lg text-sm border';}
+function showAdmin(){if(!isAdmin){document.getElementById('auth-modal').classList.remove('hidden');return;}document.getElementById('view-admin').classList.remove('hidden');document.getElementById('view-public').classList.add('hidden');document.getElementById('btn-admin').className='px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white';document.getElementById('btn-public').className='px-3 py-1.5 rounded-lg text-sm border';}
+document.getElementById('btn-public').onclick=showPublic;
+document.getElementById('btn-admin').onclick=showAdmin;
+document.getElementById('auth-cancel').onclick=()=>document.getElementById('auth-modal').classList.add('hidden');
+document.getElementById('auth-go').onclick=()=>{if(document.getElementById('auth-pass').value===PASS){isAdmin=true;document.getElementById('auth-modal').classList.add('hidden');document.getElementById('auth-err').classList.add('hidden');showAdmin();}else document.getElementById('auth-err').classList.remove('hidden');};
+document.getElementById('auth-pass').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('auth-go').click();});
+document.getElementById('btn-logout').onclick=()=>{isAdmin=false;showPublic();};
+document.getElementById('btn-save-cfg').onclick=()=>{state.config.totalTeams=parseInt(document.getElementById('cfg-teams').value)||20;state.config.numGroups=parseInt(document.getElementById('cfg-groups').value)||5;state.config.teamsPerGroup=Math.ceil(state.config.totalTeams/state.config.numGroups);save();};
+document.getElementById('btn-save-teams').onclick=()=>{const lines=document.getElementById('teams-text').value.split('\n').map(s=>s.trim()).filter(Boolean);const n=state.config.totalTeams||lines.length;const names=lines.slice(0,n);while(names.length<n)names.push('تیم '+(names.length+1));const g=state.config.numGroups||5;for(let i=names.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[names[i],names[j]]=[names[j],names[i]];}state.teams=names.map((name,i)=>({id:'t'+(i+1),name,groupIndex:i%g}));genGroupMatches();save();};
+document.getElementById('btn-news').onclick=()=>{const title=document.getElementById('news-title').value.trim();const body=document.getElementById('news-body').value.trim();if(!title)return;state.news.unshift({id:'n'+Date.now(),title,body,date:new Date().toLocaleDateString('fa-IR')});document.getElementById('news-title').value='';document.getElementById('news-body').value='';save();};
+document.getElementById('btn-export').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='golbahar-backup.json';a.click();};
+document.getElementById('import-file').onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const p=JSON.parse(r.result);state=Object.assign(state,p);save();}catch(err){alert('فایل نامعتبر');}};r.readAsText(f);};
+load();render();showPublic();
 </script>
 </body>
 </html>
