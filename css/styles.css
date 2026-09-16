@@ -48,3 +48,16 @@ body {
         @media (prefers-reduced-motion: reduce) {
             .news-marquee { animation: none; }
         }
+        .jdp-container, jdp-container, .jalali-datepicker, [class*="jdp"] {
+            z-index: 9999 !important;
+        }
+        .jdp-date-input {
+            min-width: 8rem;
+        }
+.admin-shell { min-height: 100vh; }
+.admin-sidebar { min-height: 100vh; }
+@media (max-width: 768px) {
+  .admin-sidebar { min-height: auto; }
+}
+#install-pwa-btn { display: none; }
+#install-pwa-btn.show { display: inline-flex; }
