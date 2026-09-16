@@ -1,14 +1,13 @@
 /**
- * ذخیره مشترک — همه گوشی‌ها یک داده می‌بینند
- * از JSONBlob (رایگان، بدون ثبت‌نام) + localStorage
+ * ذخیره زنده مشترک — همه گوشی‌ها یک داده می‌بینند
+ * Backend: crudcrud.com (CORS باز، بدون ثبت‌نام)
  */
 (function (global) {
   const LS_KEY = 'golbahar_volleyball_state';
-  const LS_BIN_KEY = 'golbahar_cloud_bin_id';
-  const HARDCODED_BIN_ID = '';
-  const JSONBLOB_BASE = 'https://jsonblob.com/api/jsonBlob';
+  const CLOUD_BASE = 'https://crudcrud.com/api/31ee9f3211594237b3da1bdfebd4167d';
+  const CLOUD_RESOURCE = 'tournament';
+  const CLOUD_DOC_ID = '6aaa8a46e24e7c03e81a1a82';
   let memoryState = null;
-  let binId = HARDCODED_BIN_ID || localStorage.getItem(LS_BIN_KEY) || '';
   let listeners = [];
   let syncing = false;
   function notify() { listeners.forEach((fn) => { try { fn(memoryState); } catch (e) {} }); }
@@ -17,88 +16,88 @@
     try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {
       try {
         const light = JSON.parse(JSON.stringify(state));
-        if (light.teams) light.teams.forEach((t) => { if (t.logo && t.logo.length > 40000) t.logo = null; if (t.teamPhoto && t.teamPhoto.length > 50000) t.teamPhoto = null; });
-        if (light.organizerLogo && light.organizerLogo.length > 50000) light.organizerLogo = null;
+        if (light.teams) light.teams.forEach((t) => { if (t.logo && String(t.logo).length > 30000) t.logo = null; if (t.teamPhoto && String(t.teamPhoto).length > 40000) t.teamPhoto = null; });
+        if (light.organizerLogo && String(light.organizerLogo).length > 40000) light.organizerLogo = null;
         localStorage.setItem(LS_KEY, JSON.stringify(light));
       } catch (e2) {}
     }
   }
-  async function fetchCloud(id) {
-    if (!id) return null;
-    const res = await fetch(JSONBLOB_BASE + '/' + id, { method: 'GET', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, cache: 'no-store' });
-    if (!res.ok) return null;
-    return res.json();
+  function cloudUrl() { return CLOUD_BASE + '/' + CLOUD_RESOURCE + '/' + CLOUD_DOC_ID; }
+  function stripForCloud(state) {
+    const payload = JSON.parse(JSON.stringify(state));
+    delete payload._id;
+    if (payload.teams) payload.teams.forEach((t) => { if (t.teamPhoto && String(t.teamPhoto).length > 80000) t.teamPhoto = null; if (t.logo && String(t.logo).length > 60000) t.logo = null; });
+    if (payload.organizerLogo && String(payload.organizerLogo).length > 80000) payload.organizerLogo = null;
+    return payload;
   }
-  async function createCloud(state) {
-    const res = await fetch(JSONBLOB_BASE, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(state) });
-    if (!res.ok) throw new Error('create failed ' + res.status);
-    const loc = res.headers.get('Location') || res.headers.get('location') || '';
-    const parts = loc.split('/');
-    const id = parts[parts.length - 1] || '';
-    if (!id) throw new Error('no bin id in response');
-    return id;
+  async function fetchCloud() {
+    const res = await fetch(cloudUrl() + '?t=' + Date.now(), { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (!res.ok) throw new Error('cloud get ' + res.status);
+    const data = await res.json();
+    delete data._id;
+    return data;
   }
-  async function updateCloud(id, state) {
-    const res = await fetch(JSONBLOB_BASE + '/' + id, { method: 'PUT', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(state) });
-    if (!res.ok) throw new Error('update failed ' + res.status);
+  async function putCloud(state) {
+    const payload = stripForCloud(state);
+    const res = await fetch(cloudUrl(), { method: 'PUT', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('cloud put ' + res.status);
     return true;
   }
   const Storage = {
-    getBinId() { return binId || HARDCODED_BIN_ID || localStorage.getItem(LS_BIN_KEY) || ''; },
-    setBinId(id) { binId = id || ''; if (binId) localStorage.setItem(LS_BIN_KEY, binId); else localStorage.removeItem(LS_BIN_KEY); },
+    isCloudEnabled() { return true; },
+    getBinId() { return CLOUD_DOC_ID; },
+    setBinId() {},
     getState() { return memoryState; },
     onChange(fn) { listeners.push(fn); return () => { listeners = listeners.filter((f) => f !== fn); }; },
     async init(defaultState) {
       let state = loadLocal() || defaultState;
       memoryState = state;
-      const id = this.getBinId();
-      if (id) {
-        try {
-          const remote = await fetchCloud(id);
-          if (remote && typeof remote === 'object') {
-            if (!remote.lastUpdated || !state.lastUpdated || remote.lastUpdated >= state.lastUpdated) {
-              memoryState = remote; saveLocal(memoryState);
-            }
-          }
-        } catch (e) { console.warn('cloud read failed', e); }
-      }
+      try {
+        const remote = await fetchCloud();
+        if (remote && typeof remote === 'object') {
+          const rTime = remote.lastUpdated || 0;
+          const lTime = state.lastUpdated || 0;
+          if (rTime >= lTime || !state.teams || state.teams.length === 0) {
+            memoryState = Object.assign({}, defaultState, remote);
+            if (!Array.isArray(memoryState.teams)) memoryState.teams = [];
+            if (!Array.isArray(memoryState.matches)) memoryState.matches = [];
+            if (!Array.isArray(memoryState.news)) memoryState.news = [];
+            saveLocal(memoryState);
+          } else if (lTime > rTime) { await putCloud(state); }
+        }
+      } catch (e) { console.warn('cloud init', e); }
       notify();
-      setInterval(() => this.pull(), 15000);
+      setInterval(() => this.pull(), 8000);
       return memoryState;
     },
     async save(state) {
-      if (syncing) return;
+      if (syncing) { memoryState = state; saveLocal(state); notify(); return { ok: true, queued: true }; }
       state.lastUpdated = Date.now();
       memoryState = state;
       saveLocal(state);
       notify();
-      const id = this.getBinId();
-      if (!id) return { ok: true, localOnly: true };
-      try { syncing = true; await updateCloud(id, state); return { ok: true, cloud: true }; }
-      catch (e) { console.warn('cloud write failed', e); return { ok: false, error: String(e) }; }
+      try { syncing = true; await putCloud(state); return { ok: true, cloud: true }; }
+      catch (e) { console.warn('cloud save', e); return { ok: false, error: String(e), localOnly: true }; }
       finally { syncing = false; }
     },
-    async enableCloud(state) {
-      const payload = state || memoryState;
-      payload.lastUpdated = Date.now();
-      try {
-        const id = await createCloud(payload);
-        this.setBinId(id);
-        memoryState = payload; saveLocal(payload); notify();
-        return { ok: true, binId: id };
-      } catch (e) { return { ok: false, error: String(e.message || e) }; }
-    },
     async pull() {
-      const id = this.getBinId();
-      if (!id || syncing) return;
+      if (syncing) return;
       try {
-        const remote = await fetchCloud(id);
+        const remote = await fetchCloud();
         if (remote && remote.lastUpdated && remote.lastUpdated > (memoryState?.lastUpdated || 0)) {
-          memoryState = remote; saveLocal(remote); notify();
+          memoryState = remote;
+          if (!Array.isArray(memoryState.teams)) memoryState.teams = [];
+          if (!Array.isArray(memoryState.matches)) memoryState.matches = [];
+          if (!Array.isArray(memoryState.news)) memoryState.news = [];
+          saveLocal(remote);
+          notify();
         }
       } catch (e) {}
     },
-    isCloudEnabled() { return !!this.getBinId(); }
+    async enableCloud(state) {
+      try { await putCloud(state || memoryState); return { ok: true, binId: CLOUD_DOC_ID }; }
+      catch (e) { return { ok: false, error: String(e.message || e) }; }
+    }
   };
   global.GolbaharStorage = Storage;
 })(window);
