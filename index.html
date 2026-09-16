@@ -20,10 +20,17 @@
     var data = await res.json();
     var html = data.html;
     if (!html) throw new Error('empty page');
+
+    // Ensure app boots even if DOMContentLoaded already fired
+    var bootInject = "<script>(function(){function go(){try{if(typeof initApp==='function')initApp();}catch(e){console.error(e);}setTimeout(function(){var L=document.getElementById('app-loading');if(L){L.style.opacity='0';setTimeout(function(){L.style.display='none';},200);}},300);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();<\/script>";
+    if (html.indexOf('</body>') !== -1) html = html.replace('</body>', bootInject + '</body>');
+    else html += bootInject;
+
     if (location.hash === '#admin' && sessionStorage.getItem('golbahar_admin_ok') === '1') {
       html = html.replace('</body>',
-        '<script>setTimeout(function(){try{isAdminLoggedIn=true;var p=document.getElementById("view-public");var a=document.getElementById("view-admin");if(p)p.classList.add("hidden");if(a)a.classList.remove("hidden");if(typeof switchAdminSubtab==="function")switchAdminSubtab("config");}catch(e){}},800);<\/script></body>');
+        '<script>setTimeout(function(){try{isAdminLoggedIn=true;var p=document.getElementById("view-public");var a=document.getElementById("view-admin");if(p)p.classList.add("hidden");if(a)a.classList.remove("hidden");}catch(e){}},900);<\/script></body>');
     }
+
     document.open();
     document.write(html);
     document.close();
