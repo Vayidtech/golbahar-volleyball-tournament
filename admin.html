@@ -9,7 +9,7 @@
 <style>body{font-family:Vazirmatn,Tahoma,sans-serif}</style>
 </head>
 <body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
-<div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+<div id="gate" class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
   <div class="text-3xl mb-2">🔒</div>
   <h1 class="text-lg font-black mb-1">ورود مدیریت</h1>
   <p class="text-xs text-slate-500 mb-4">مسابقات والیبال گلبهار — نتایج زنده</p>
@@ -20,17 +20,17 @@
 </div>
 <script>
 const PASS = 'golbahar1403';
+function enterAdmin() {
+  sessionStorage.setItem('golbahar_admin_ok', '1');
+  location.href = 'index.html#admin';
+}
 function go() {
-  if (document.getElementById('pass').value === PASS) {
-    sessionStorage.setItem('golbahar_admin_ok', '1');
-    location.href = 'index.html#admin';
-  } else {
-    document.getElementById('err').classList.remove('hidden');
-  }
+  if (document.getElementById('pass').value === PASS) enterAdmin();
+  else document.getElementById('err').classList.remove('hidden');
 }
 document.getElementById('btn').onclick = go;
-document.getElementById('pass').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
-if (sessionStorage.getItem('golbahar_admin_ok') === '1') location.href = 'index.html#admin';
+document.getElementById('pass').addEventListener('keydown', function(e){ if(e.key==='Enter') go(); });
+if (sessionStorage.getItem('golbahar_admin_ok') === '1') enterAdmin();
 </script>
 </body>
 </html>
