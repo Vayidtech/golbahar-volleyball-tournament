@@ -1,1 +1,1615 @@
-FILE_TOO_LARGE_FOR_INLINE_USE_LOCAL
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>سامانه مدیریت و اطلاع‌رسانی مسابقات والیبال گلبهار</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                        },
+                        accent: {
+                            500: '#0284c7',
+                            600: '#0369a1',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'Tahoma', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Vazirmatn Persian Font -->
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.FirebaseModule = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, setDoc, onSnapshot };
+    </script>
+
+    <style>
+        body {
+            font-family: 'Vazirmatn', Tahoma, sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .drag-over {
+            border: 2px dashed #059669 !important;
+            background-color: #ecfdf5 !important;
+        }
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+        .touch-action-none {
+            touch-action: none;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Initial Loading Screen (Prevents blank screen issue) -->
+    <div id="app-loading" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white transition-opacity duration-300">
+        <div class="w-16 h-16 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-slate-600 font-medium text-lg">در حال بارگذاری مسابقات والیبال گلبهار...</p>
+    </div>
+
+    <!-- Main Navigation Header -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Branding -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white flex items-center justify-center shadow-md font-bold text-xl">
+                        <i class="fa-solid font-bold fa-volleyball animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-black text-slate-900 leading-tight">جام والیبال گلبهار</h1>
+                        <p class="text-xs text-slate-500 font-normal">سامانه رسمی مدیریت و نتایج زنده</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs & Admin Switcher -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <button id="nav-btn-public" onclick="switchMainTab('public')" class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 bg-brand-500 text-white shadow-sm">
+                        <i class="fa-solid fa-users"></i>
+                        <span>صفحه عمومی</span>
+                    </button>
+                    
+                    <button id="nav-btn-admin" onclick="openAdminAuthOrPanel()" class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2 border border-slate-200">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>پنل مدیریت</span>
+                        <span id="admin-badge" class="hidden w-2 h-2 rounded-full bg-emerald-500"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+        <!-- ========================================================================= -->
+        <!-- PUBLIC VIEW (صفحه عمومی کاربران) -->
+        <!-- ========================================================================= -->
+        <div id="view-public" class="space-y-6">
+
+            <!-- Dynamic Date Tabs for Matches -->
+            <section class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                    <h2 class="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-day text-brand-600"></i>
+                        <span>برنامه و نتایج بازی‌ها</span>
+                    </h2>
+                    <span id="matches-count-tag" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">۰ مسابقه</span>
+                </div>
+
+                <!-- Filter Subtabs -->
+                <div class="flex overflow-x-auto gap-2 pb-1 no-scrollbar text-xs sm:text-sm font-medium">
+                    <button id="match-tab-today" onclick="filterPublicMatches('today')" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold shrink-0 transition-all flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-fire text-amber-400"></i>
+                        <span>بازی‌های امروز</span>
+                    </button>
+                    <button id="match-tab-upcoming" onclick="filterPublicMatches('upcoming')" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 shrink-0 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-clock"></i>
+                        <span>بازی‌های آینده</span>
+                    </button>
+                    <button id="match-tab-past" onclick="filterPublicMatches('past')" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 shrink-0 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>بازی‌های گذشته</span>
+                    </button>
+                    <button id="match-tab-all" onclick="filterPublicMatches('all')" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 shrink-0 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-ul"></i>
+                        <span>همه مسابقات</span>
+                    </button>
+                </div>
+
+                <!-- Matches Feed Container -->
+                <div id="public-matches-feed" class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <!-- Populated dynamically -->
+                </div>
+            </section>
+
+            <!-- Group Standings Section -->
+            <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                        <i class="fa-solid fa-table text-brand-600"></i>
+                        <span>جدول رده‌بندی گروه‌ها</span>
+                    </h2>
+                    <span class="text-xs text-slate-500">مرحله گروهی (برد ۲-۰: ۳امتیاز، برد ۲-۱: ۲امتیاز، باخت ۱-۲: ۱امتیاز)</span>
+                </div>
+
+                <div id="public-group-tables-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Dynamic Group Tables -->
+                </div>
+            </section>
+
+            <!-- Knockout & Qualified Teams Section -->
+            <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-trophy text-amber-500"></i>
+                            <span>تیم‌های صعود کرده و نمودار حذفی</span>
+                        </h2>
+                        <p id="knockout-stage-description" class="text-xs text-slate-500 mt-0.5">محاسبه صعود بر اساس ست‌شماری و امتیازات</p>
+                    </div>
+                </div>
+
+                <!-- Qualified Teams Cards -->
+                <div id="qualified-teams-summary" class="mb-6 p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-200/60">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                        <span>وضعیت صعود‌کنندگان تا این لحظه</span>
+                    </h3>
+                    <div id="qualified-teams-list" class="flex flex-wrap gap-2 text-xs">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Knockout Tree Bracket Representation -->
+                <div class="overflow-x-auto pb-4">
+                    <div id="knockout-bracket-tree" class="min-w-[700px] flex justify-around gap-4 pt-2">
+                        <!-- Knockout matches tree -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- News & Announcements Section -->
+            <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
+                <h2 class="font-extrabold text-slate-900 text-base sm:text-lg mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-bullhorn text-accent-500"></i>
+                    <span>اخبار و اطلاعیه‌های رسمی تورنمنت</span>
+                </h2>
+                <div id="public-news-container" class="space-y-3">
+                    <!-- Populated dynamically -->
+                </div>
+            </section>
+
+            <!-- Summary / Overview Section -->
+            <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
+                <h2 class="font-extrabold text-slate-900 text-base sm:text-lg mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-brand-600"></i>
+                    <span>خلاصه آمار تورنمنت گلبهار</span>
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="block text-2xl font-black text-brand-600" id="stat-total-teams">۰</span>
+                        <span class="text-xs text-slate-500">تعداد کل تیم‌ها</span>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="block text-2xl font-black text-accent-500" id="stat-total-matches">۰</span>
+                        <span class="text-xs text-slate-500">کل مسابقات</span>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="block text-2xl font-black text-amber-500" id="stat-played-matches">۰</span>
+                        <span class="text-xs text-slate-500">بازی‌های انجام‌شده</span>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="block text-2xl font-black text-purple-600" id="stat-sets-played">۰</span>
+                        <span class="text-xs text-slate-500">مجموع ست‌های برگزارشده</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+
+        <!-- ========================================================================= -->
+        <!-- ADMIN PANEL VIEW (پنل مدیریت) -->
+        <!-- ========================================================================= -->
+        <div id="view-admin" class="hidden space-y-6">
+            
+            <!-- Admin Top Control Bar -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-brand-600"></i>
+                        <span>پنل مدیریت تورنمنت گلبهار</span>
+                    </h2>
+                    <p class="text-xs text-slate-500">تنظیمات، قرعه‌کشی PES-Style، برنامه‌ریزی تقویم فارسی و ثبت نتایج</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="resetDataPrompt()" class="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-semibold transition">
+                        <i class="fa-solid fa-rotate-right"></i> بازنشانی کامل داده‌ها
+                    </button>
+                    <button onclick="logoutAdmin()" class="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition">
+                        <i class="fa-solid fa-right-from-bracket"></i> خروج مدیریت
+                    </button>
+                </div>
+            </div>
+
+            <!-- Admin Sub-navigation Tabs -->
+            <div class="flex overflow-x-auto gap-2 border-b border-slate-200 pb-2 no-scrollbar text-xs sm:text-sm font-bold">
+                <button id="admin-subtab-config" onclick="switchAdminSubtab('config')" class="px-4 py-2.5 rounded-xl bg-brand-500 text-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-gear"></i> پیکربندی و لیست تیم‌ها
+                </button>
+                <button id="admin-subtab-draw" onclick="switchAdminSubtab('draw')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-hand-pointer"></i> قرعه‌کشی و جابجایی (درگ اند دراپ)
+                </button>
+                <button id="admin-subtab-schedule" onclick="switchAdminSubtab('schedule')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-plus"></i> زمان‌بندی و تقویم
+                </button>
+                <button id="admin-subtab-results" onclick="switchAdminSubtab('results')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-square-poll-vertical"></i> ثبت نتایج
+                </button>
+                <button id="admin-subtab-news" onclick="switchAdminSubtab('news')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-newspaper"></i> اخبار و اطلاعیه‌ها
+                </button>
+            </div>
+
+            <!-- ADMIN SECTION 1: Configuration & Team Input -->
+            <div id="admin-section-config" class="space-y-6">
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-cubes text-brand-600"></i>
+                        <span>تنظیم ساختار تورنمنت</span>
+                    </h3>
+
+                    <form id="config-form" onsubmit="saveTournamentStructure(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">تعداد کل تیم‌ها</label>
+                            <!-- Uses type="text" inputmode="numeric" for mobile-friendly typing -->
+                            <input type="text" inputmode="numeric" id="input-total-teams" required class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm font-semibold" placeholder="مثلاً 20">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">تعداد گروه‌ها</label>
+                            <input type="text" inputmode="numeric" id="input-num-groups" required class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm font-semibold" placeholder="مثلاً 5">
+                        </div>
+
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-xl text-sm transition shadow-sm">
+                                اعمال و ساخت گروه‌ها
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Teams Edit Table & Logos -->
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-brand-600"></i>
+                            <span>ویرایش نام و لوگوی تیم‌ها</span>
+                        </h3>
+                        <span class="text-xs text-slate-500">مستقیماً تایپ کنید و تغییرات ذخیره می‌شود</span>
+                    </div>
+
+                    <div id="admin-teams-list-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <!-- Dynamic list of team editor cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN SECTION 2: Interactive PES-style Drag and Drop Draw -->
+            <div id="admin-section-draw" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-gamepad text-brand-600"></i>
+                                <span>قرعه‌کشی و چینش دستی گروه‌ها (سبک PES 2021)</span>
+                            </h3>
+                            <p class="text-xs text-slate-500">تیم‌ها را با کشیدن و رها کردن (درگ اند دراپ) یا لمس بین گروه‌ها جابه‌جا کنید.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="autoRandomDraw()" class="px-3 py-2 bg-accent-500 hover:bg-accent-600 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+                                <i class="fa-solid fa-shuffle"></i> قرعه‌کشی خودکار تصادفی
+                            </button>
+                            <button onclick="generateGroupMatchesSchedule()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+                                <i class="fa-solid fa-calendar-check"></i> تایید نهایی و ساخت جدول بازی‌ها
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Drag & Drop Zone Layout -->
+                    <div id="pes-draw-board" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Dynamic groups for drag and drop -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN SECTION 3: Persian Jalali Scheduler -->
+            <div id="admin-section-schedule" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <h3 class="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-clock text-brand-600"></i>
+                        <span>برنامه‌ریزی تاریخ و ساعت بازی‌ها</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-4">تاریخ را به شمسی (مثلاً ۱۴۰۳/۰۷/۱۰) و ساعت را به فرمت ۲۴ ساعته (مثلاً ۱۸:۳۰) وارد کنید.</p>
+
+                    <div id="admin-schedule-list" class="space-y-3">
+                        <!-- Populated with match timing editors -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN SECTION 4: Match Results Entry -->
+            <div id="admin-section-results" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-pen-to-square text-brand-600"></i>
+                            <span>ثبت نتایج و امتیازات ست‌ها (مرتب‌شده بر حسب تاریخ)</span>
+                        </h3>
+                        <div class="text-xs bg-brand-50 text-brand-700 px-3 py-1 rounded-full font-bold">
+                            قانون ۲ ست برد
+                        </div>
+                    </div>
+
+                    <div id="admin-results-list" class="space-y-4">
+                        <!-- Populated with match result entry cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN SECTION 5: News & Rules Manager -->
+            <div id="admin-section-news" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-brand-600"></i>
+                        <span>انتشار خبر یا اطلاعیه جدید</span>
+                    </h3>
+
+                    <form onsubmit="addNewAnnouncement(event)" class="space-y-3">
+                        <div>
+                            <input type="text" id="news-title" required placeholder="عنوان اطلاعیه..." class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm font-bold">
+                        </div>
+                        <div>
+                            <textarea id="news-body" required rows="3" placeholder="متن کامل خبر یا قانون تورنمنت..." class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm"></textarea>
+                        </div>
+                        <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs transition shadow-sm">
+                            <i class="fa-solid fa-paper-plane ml-1"></i> انتشار اطلاعیه
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Existing News List -->
+                <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                    <h3 class="text-base font-bold text-slate-900 mb-4">اطلاعیه‌های منتشرشده</h3>
+                    <div id="admin-news-list" class="space-y-3">
+                        <!-- Dynamic news list -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- MODALS -->
+    <!-- ========================================================================= -->
+
+    <!-- Admin Authentication Modal (Password Hidden) -->
+    <div id="admin-auth-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-right">
+            <div class="w-12 h-12 rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-3 font-bold text-xl">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-900 text-center mb-1">ورود به پنل مدیریت</h3>
+            <p class="text-xs text-slate-500 text-center mb-4">برای دسترسی به ابزارهای ویرایش، رمز را وارد نمایید.</p>
+
+            <form onsubmit="handleAdminAuth(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">رمز عبور مدیریت</label>
+                    <input type="password" id="admin-password-input" required class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm text-center tracking-widest" placeholder="••••••••">
+                </div>
+                <div id="auth-error-msg" class="text-xs text-rose-600 font-semibold hidden text-center">رمز عبور اشتباه است!</div>
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="flex-1 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition">ورود</button>
+                    <button type="button" onclick="closeAdminAuthModal()" class="px-4 py-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl text-xs font-semibold transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Team Details Modal -->
+    <div id="team-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl border border-slate-100 text-right">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <div class="flex items-center gap-3">
+                    <img id="team-modal-logo" src="" class="w-12 h-12 rounded-full object-cover border border-slate-200 shadow-sm" alt="Logo">
+                    <div>
+                        <h3 id="team-modal-name" class="text-lg font-black text-slate-900">نام تیم</h3>
+                        <span id="team-modal-group" class="text-xs text-brand-600 font-bold">گروه -</span>
+                    </div>
+                </div>
+                <button onclick="closeTeamModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-4 gap-2 text-center mb-4 text-xs">
+                <div class="p-2 bg-slate-50 rounded-lg">
+                    <span class="block text-slate-400 font-normal">بازی</span>
+                    <span id="team-modal-played" class="font-bold text-slate-800">0</span>
+                </div>
+                <div class="p-2 bg-emerald-50 rounded-lg">
+                    <span class="block text-emerald-600 font-normal">برد</span>
+                    <span id="team-modal-won" class="font-bold text-emerald-800">0</span>
+                </div>
+                <div class="p-2 bg-rose-50 rounded-lg">
+                    <span class="block text-rose-600 font-normal">باخت</span>
+                    <span id="team-modal-lost" class="font-bold text-rose-800">0</span>
+                </div>
+                <div class="p-2 bg-brand-50 rounded-lg">
+                    <span class="block text-brand-600 font-normal">امتیاز</span>
+                    <span id="team-modal-pts" class="font-bold text-brand-800">0</span>
+                </div>
+            </div>
+
+            <!-- Match History & Upcoming -->
+            <div>
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">لیست مسابقات تیم</h4>
+                <div id="team-modal-matches" class="space-y-2 text-xs">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- APPLICATION JAVASCRIPT LOGIC -->
+    <!-- ========================================================================= -->
+    <script>
+        // State Store Definition
+        const ADMIN_FIXED_PASS = "golbahar1403"; // Standard fixed admin pass
+        let isAdminLoggedIn = false;
+        let activePublicMatchTab = 'today';
+
+        // Default Tournament Configuration
+        let appState = {
+            config: {
+                totalTeams: 20,
+                numGroups: 5,
+                teamsPerGroup: 4
+            },
+            teams: [], // { id, name, logo, groupIndex }
+            matches: [], // { id, stage: 'group'/'knockout_1'/'knockout_2'/etc, teamAId, teamBId, groupIndex, dateJalali, time24, court, setScores: [{a,b}], isFinished, winnerId }
+            news: [], // { id, title, body, date }
+            lastUpdated: Date.now()
+        };
+
+        // Standard Default Logo List (Preset SVG placehold avatar style)
+        const DEFAULT_LOGOS = [
+            "https://placehold.co/100x100/10b981/ffffff?text=V1",
+            "https://placehold.co/100x100/0284c7/ffffff?text=V2",
+            "https://placehold.co/100x100/f59e0b/ffffff?text=V3",
+            "https://placehold.co/100x100/8b5cf6/ffffff?text=V4",
+            "https://placehold.co/100x100/ec4899/ffffff?text=V5"
+        ];
+
+        // Persian Date Utilities (Intl Native Jalali Support)
+        function getTodayJalaliString() {
+            try {
+                const now = new Date();
+                const formatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                const parts = formatter.formatToParts(now);
+                const year = parts.find(p => p.type === 'year').value;
+                const month = parts.find(p => p.type === 'month').value;
+                const day = parts.find(p => p.type === 'day').value;
+                return `${year}/${month}/${day}`;
+            } catch(e) {
+                return "1403/07/01";
+            }
+        }
+
+        function convertToPersianDigits(str) {
+            if (str === null || str === undefined) return '';
+            return str.toString().replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+        }
+
+        // --- App Initialization & Persistence ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
+
+        function initApp() {
+            // Load state from local storage or initialize default mock
+            const saved = localStorage.getItem('golbahar_volleyball_state');
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                } catch(e) {
+                    initDefaultMockState();
+                }
+            } else {
+                initDefaultMockState();
+            }
+
+            // Setup Firebase listener if configured
+            setupFirebaseSync();
+
+            // Render view
+            renderAllViews();
+
+            // Hide loader smoothly
+            setTimeout(() => {
+                const loader = document.getElementById('app-loading');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.style.display = 'none', 300);
+                }
+            }, 300);
+        }
+
+        function initDefaultMockState() {
+            const todayStr = getTodayJalaliString();
+            appState = {
+                config: { totalTeams: 20, numGroups: 5, teamsPerGroup: 4 },
+                teams: [],
+                matches: [],
+                news: [
+                    { id: 'n1', title: 'آغاز ثبت‌نام و قرعه‌کشی جام والیبال گلبهار', body: 'به اطلاع کلیه سرپرستان محترم تیم‌ها می‌رساند مسابقات از هفته آینده آغاز می‌گردد.', date: todayStr }
+                ],
+                lastUpdated: Date.now()
+            };
+
+            // Generate 20 Default Teams
+            for (let i = 1; i <= 20; i++) {
+                const gIndex = Math.floor((i - 1) / 4);
+                appState.teams.push({
+                    id: `team_${i}`,
+                    name: `تیم ${i} گلبهار`,
+                    logo: DEFAULT_LOGOS[(i - 1) % DEFAULT_LOGOS.length],
+                    groupIndex: gIndex
+                });
+            }
+
+            saveAppState();
+        }
+
+        function saveAppState() {
+            appState.lastUpdated = Date.now();
+            localStorage.setItem('golbahar_volleyball_state', JSON.stringify(appState));
+            syncToFirebase();
+            renderAllViews();
+        }
+
+        // Firebase Sync Mechanism
+        function setupFirebaseSync() {
+            try {
+                if (window.FirebaseModule && typeof __firebase_config !== 'undefined') {
+                    const { initializeApp, getFirestore, doc, onSnapshot, getAuth, signInAnonymously } = window.FirebaseModule;
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    const db = getFirestore(app);
+                    const auth = getAuth(app);
+
+                    signInAnonymously(auth).then(() => {
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'golbahar-volleyball';
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament_state');
+                        
+                        onSnapshot(docRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                const remoteState = snapshot.data();
+                                if (remoteState && remoteState.lastUpdated > appState.lastUpdated) {
+                                    appState = remoteState;
+                                    renderAllViews();
+                                }
+                            }
+                        }, (err) => console.log('Firestore snapshot fallback to LocalStorage'));
+                    });
+                }
+            } catch(e) {
+                // Smooth fallback to local storage
+            }
+        }
+
+        function syncToFirebase() {
+            try {
+                if (window.FirebaseModule && typeof __firebase_config !== 'undefined') {
+                    const { initializeApp, getFirestore, doc, setDoc, getAuth } = window.FirebaseModule;
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    const db = getFirestore(app);
+                    const auth = getAuth(app);
+
+                    if (auth.currentUser) {
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'golbahar-volleyball';
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament_state');
+                        setDoc(docRef, appState, { merge: true });
+                    }
+                }
+            } catch(e) {}
+        }
+
+
+        // --- View & Tab Switching ---
+        function switchMainTab(tab) {
+            const publicView = document.getElementById('view-public');
+            const adminView = document.getElementById('view-admin');
+            const navPublic = document.getElementById('nav-btn-public');
+            const navAdmin = document.getElementById('nav-btn-admin');
+
+            if (tab === 'public') {
+                publicView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                navPublic.className = "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 bg-brand-500 text-white shadow-sm";
+                navAdmin.className = "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2 border border-slate-200";
+            } else {
+                publicView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                navAdmin.className = "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 bg-brand-500 text-white shadow-sm";
+                navPublic.className = "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2 border border-slate-200";
+            }
+        }
+
+        function openAdminAuthOrPanel() {
+            if (isAdminLoggedIn) {
+                switchMainTab('admin');
+            } else {
+                document.getElementById('admin-auth-modal').classList.remove('hidden');
+            }
+        }
+
+        function closeAdminAuthModal() {
+            document.getElementById('admin-auth-modal').classList.add('hidden');
+            document.getElementById('auth-error-msg').classList.add('hidden');
+            document.getElementById('admin-password-input').value = '';
+        }
+
+        function handleAdminAuth(e) {
+            e.preventDefault();
+            const pass = document.getElementById('admin-password-input').value;
+            if (pass === ADMIN_FIXED_PASS) {
+                isAdminLoggedIn = true;
+                document.getElementById('admin-badge').classList.remove('hidden');
+                closeAdminAuthModal();
+                switchMainTab('admin');
+            } else {
+                document.getElementById('auth-error-msg').classList.remove('hidden');
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            document.getElementById('admin-badge').classList.add('hidden');
+            switchMainTab('public');
+        }
+
+        function switchAdminSubtab(sub) {
+            const subs = ['config', 'draw', 'schedule', 'results', 'news'];
+            subs.forEach(s => {
+                const btn = document.getElementById(`admin-subtab-${s}`);
+                const sec = document.getElementById(`admin-section-${s}`);
+                if (s === sub) {
+                    btn.className = "px-4 py-2.5 rounded-xl bg-brand-500 text-white font-bold transition flex items-center gap-2 shadow-sm";
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.className = "px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-2";
+                    sec.classList.add('hidden');
+                }
+            });
+        }
+
+
+        // --- Rendering Core Engine ---
+        function renderAllViews() {
+            renderPublicMatchesFeed();
+            renderPublicGroupStandings();
+            renderKnockoutBracket();
+            renderPublicNews();
+            renderStatsSummary();
+
+            // Admin Views
+            renderAdminConfig();
+            renderAdminPESDrawBoard();
+            renderAdminScheduleList();
+            renderAdminResultsList();
+            renderAdminNewsList();
+        }
+
+        function filterPublicMatches(tab) {
+            activePublicMatchTab = tab;
+            const tabs = ['today', 'upcoming', 'past', 'all'];
+            tabs.forEach(t => {
+                const b = document.getElementById(`match-tab-${t}`);
+                if (t === tab) {
+                    b.className = "px-4 py-2 rounded-xl bg-slate-900 text-white font-bold shrink-0 transition-all flex items-center gap-1.5 shadow-sm";
+                } else {
+                    b.className = "px-4 py-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 shrink-0 transition-all flex items-center gap-1.5";
+                }
+            });
+            renderPublicMatchesFeed();
+        }
+
+        function renderPublicMatchesFeed() {
+            const container = document.getElementById('public-matches-feed');
+            const todayStr = getTodayJalaliString();
+            
+            let filtered = [...appState.matches];
+            
+            if (activePublicMatchTab === 'today') {
+                filtered = filtered.filter(m => m.dateJalali === todayStr);
+            } else if (activePublicMatchTab === 'upcoming') {
+                filtered = filtered.filter(m => !m.isFinished && m.dateJalali >= todayStr);
+            } else if (activePublicMatchTab === 'past') {
+                filtered = filtered.filter(m => m.isFinished);
+            }
+
+            document.getElementById('matches-count-tag').textContent = `${convertToPersianDigits(filtered.length)} مسابقه`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-volleyball text-3xl mb-2 text-slate-300"></i>
+                        <p class="text-xs font-semibold">هیچ مسابقه‌ای در این بخش یافت نشد.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(m => {
+                const teamA = appState.teams.find(t => t.id === m.teamAId) || { name: 'تیم نامشخص', logo: DEFAULT_LOGOS[0] };
+                const teamB = appState.teams.find(t => t.id === m.teamBId) || { name: 'تیم نامشخص', logo: DEFAULT_LOGOS[1] };
+                
+                // Calculate sets won
+                let setsA = 0, setsB = 0;
+                if (m.setScores) {
+                    m.setScores.forEach(s => {
+                        if (s.a > s.b) setsA++;
+                        else if (s.b > s.a) setsB++;
+                    });
+                }
+
+                const stageName = getStageLabel(m.stage, m.groupIndex);
+
+                return `
+                    <div class="bg-slate-50 hover:bg-white rounded-xl p-3 border border-slate-200/70 hover:border-brand-300 transition-all shadow-xs">
+                        <div class="flex items-center justify-between text-[11px] text-slate-500 mb-2 pb-1.5 border-b border-slate-200/60">
+                            <span class="font-bold text-brand-700">${stageName}</span>
+                            <div class="flex items-center gap-1.5">
+                                <span><i class="fa-regular fa-calendar ml-1"></i>${convertToPersianDigits(m.dateJalali || 'تعیین نشده')}</span>
+                                <span>•</span>
+                                <span><i class="fa-regular fa-clock ml-1"></i>${convertToPersianDigits(m.time24 || '--:--')}</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-7 items-center gap-2">
+                            <!-- Team A -->
+                            <div class="col-span-3 flex items-center gap-2 cursor-pointer" onclick="openTeamModal('${teamA.id}')">
+                                <img src="${teamA.logo}" class="w-8 h-8 rounded-full border object-cover" alt="${teamA.name}">
+                                <span class="text-xs font-bold text-slate-800 truncate">${teamA.name}</span>
+                            </div>
+
+                            <!-- Score / Status -->
+                            <div class="col-span-1 text-center">
+                                ${m.isFinished ? `
+                                    <div class="text-sm font-black text-slate-900 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+                                        ${convertToPersianDigits(setsA)} - ${convertToPersianDigits(setsB)}
+                                    </div>
+                                ` : `
+                                    <span class="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 py-0.5 rounded-md">VS</span>
+                                `}
+                            </div>
+
+                            <!-- Team B -->
+                            <div class="col-span-3 flex items-center justify-end gap-2 cursor-pointer" onclick="openTeamModal('${teamB.id}')">
+                                <span class="text-xs font-bold text-slate-800 truncate">${teamB.name}</span>
+                                <img src="${teamB.logo}" class="w-8 h-8 rounded-full border object-cover" alt="${teamB.name}">
+                            </div>
+                        </div>
+
+                        ${m.setScores && m.setScores.length > 0 ? `
+                            <div class="mt-2 text-[10px] text-slate-400 text-center flex items-center justify-center gap-2">
+                                <span>جزئیات ست‌ها:</span>
+                                ${m.setScores.map(s => `<span class="bg-white border px-1.5 py-0.2 rounded font-mono">${convertToPersianDigits(s.a)}-${convertToPersianDigits(s.b)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStageLabel(stage, groupIndex) {
+            if (stage === 'group') return `گروه ${String.fromCharCode(65 + groupIndex)}`;
+            if (stage === 'knockout_1') return 'محاسبه دور اول حذفی';
+            if (stage === 'knockout_2') return 'محاسبه دور دوم حذفی';
+            if (stage === 'semi') return 'نیمه‌نهایی';
+            if (stage === 'third_place') return 'رده‌بندی';
+            if (stage === 'final') return 'فینال جام گلبهار';
+            return 'حذفی';
+        }
+
+
+        // --- Group Standings Calculation & Display ---
+        function calculateGroupStandings() {
+            const numGroups = appState.config.numGroups;
+            const standingsByGroup = [];
+
+            for (let g = 0; g < numGroups; g++) {
+                const groupTeams = appState.teams.filter(t => t.groupIndex === g);
+                const teamStats = groupTeams.map(t => ({
+                    ...t,
+                    played: 0,
+                    won: 0,
+                    lost: 0,
+                    setsWon: 0,
+                    setsLost: 0,
+                    pointsWon: 0,
+                    pointsLost: 0,
+                    pts: 0
+                }));
+
+                // Process group matches
+                const groupMatches = appState.matches.filter(m => m.stage === 'group' && m.groupIndex === g && m.isFinished);
+
+                groupMatches.forEach(m => {
+                    const statsA = teamStats.find(t => t.id === m.teamAId);
+                    const statsB = teamStats.find(t => t.id === m.teamBId);
+                    if (!statsA || !statsB) return;
+
+                    let setsA = 0, setsB = 0;
+                    m.setScores.forEach(s => {
+                        statsA.pointsWon += s.a;
+                        statsA.pointsLost += s.b;
+                        statsB.pointsWon += s.b;
+                        statsB.pointsLost += s.a;
+
+                        if (s.a > s.b) setsA++;
+                        else if (s.b > s.a) setsB++;
+                    });
+
+                    statsA.played++;
+                    statsB.played++;
+                    statsA.setsWon += setsA;
+                    statsA.setsLost += setsB;
+                    statsB.setsWon += setsB;
+                    statsB.setsLost += setsA;
+
+                    // Score rules: 2-0 win = 3 pts, 2-1 win = 2 pts for winner & 1 pt for loser
+                    if (setsA === 2 && setsB === 0) {
+                        statsA.won++; statsB.lost++;
+                        statsA.pts += 3;
+                    } else if (setsA === 2 && setsB === 1) {
+                        statsA.won++; statsB.lost++;
+                        statsA.pts += 2; statsB.pts += 1;
+                    } else if (setsB === 2 && setsA === 0) {
+                        statsB.won++; statsA.lost++;
+                        statsB.pts += 3;
+                    } else if (setsB === 2 && setsA === 1) {
+                        statsB.won++; statsA.lost++;
+                        statsB.pts += 2; statsA.pts += 1;
+                    }
+                });
+
+                // Tiebreaker sorting: Points -> Set Diff (setsWon - setsLost) -> Point Diff
+                teamStats.sort((x, y) => {
+                    if (y.pts !== x.pts) return y.pts - x.pts;
+                    const setDiffY = y.setsWon - y.setsLost;
+                    const setDiffX = x.setsWon - x.setsLost;
+                    if (setDiffY !== setDiffX) return setDiffY - setDiffX;
+                    const ptDiffY = y.pointsWon - y.pointsLost;
+                    const ptDiffX = x.pointsWon - x.pointsLost;
+                    return ptDiffY - ptDiffX;
+                });
+
+                standingsByGroup.push(teamStats);
+            }
+
+            return standingsByGroup;
+        }
+
+        function renderPublicGroupStandings() {
+            const container = document.getElementById('public-group-tables-container');
+            const standings = calculateGroupStandings();
+
+            container.innerHTML = standings.map((groupTeams, gIdx) => {
+                const groupName = String.fromCharCode(65 + gIdx);
+
+                return `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                        <div class="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between font-bold text-xs sm:text-sm">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-users-rectangle text-brand-400"></i>
+                                <span>گروه ${groupName}</span>
+                            </span>
+                            <span class="text-[10px] font-normal text-slate-300">${convertToPersianDigits(groupTeams.length)} تیم</span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-600 border-b border-slate-200 text-[11px]">
+                                        <th class="py-2 px-3 font-semibold">رتبه</th>
+                                        <th class="py-2 px-3 font-semibold">تیم</th>
+                                        <th class="py-2 px-3 font-semibold text-center">بازی</th>
+                                        <th class="py-2 px-3 font-semibold text-center">برد</th>
+                                        <th class="py-2 px-3 font-semibold text-center">باخت</th>
+                                        <th class="py-2 px-3 font-semibold text-center">ست‌ها</th>
+                                        <th class="py-2 px-3 font-semibold text-center">امتیاز</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${groupTeams.map((t, idx) => {
+                                        const isQualifying = idx < 2; // top 2 qualify by default
+                                        return `
+                                            <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="openTeamModal('${t.id}')">
+                                                <td class="py-2.5 px-3 font-bold text-slate-700">
+                                                    <span class="w-5 h-5 inline-flex items-center justify-center rounded-full ${isQualifying ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'} text-[11px]">
+                                                        ${convertToPersianDigits(idx + 1)}
+                                                    </span>
+                                                </td>
+                                                <td class="py-2.5 px-3 font-bold text-slate-900 flex items-center gap-2">
+                                                    <img src="${t.logo}" class="w-6 h-6 rounded-full border object-cover shrink-0" alt="${t.name}">
+                                                    <span class="truncate max-w-[120px] sm:max-w-none">${t.name}</span>
+                                                </td>
+                                                <td class="py-2.5 px-3 text-center text-slate-600">${convertToPersianDigits(t.played)}</td>
+                                                <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${convertToPersianDigits(t.won)}</td>
+                                                <td class="py-2.5 px-3 text-center text-rose-500">${convertToPersianDigits(t.lost)}</td>
+                                                <td class="py-2.5 px-3 text-center font-mono text-slate-600">${convertToPersianDigits(t.setsWon)}:${convertToPersianDigits(t.setsLost)}</td>
+                                                <td class="py-2.5 px-3 text-center font-black text-brand-700 text-sm bg-slate-50">${convertToPersianDigits(t.pts)}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+
+        // --- Knockout Dynamic Progression Calculation ---
+        function renderKnockoutBracket() {
+            const standings = calculateGroupStandings();
+            const qualifiedListContainer = document.getElementById('qualified-teams-list');
+            const bracketTreeContainer = document.getElementById('knockout-bracket-tree');
+
+            // Pick Top 2 from each group
+            let qualifiedTop = [];
+            let runnerUpsAndThirds = [];
+
+            standings.forEach((gTeams) => {
+                if (gTeams.length >= 1) qualifiedTop.push(gTeams[0]);
+                if (gTeams.length >= 2) qualifiedTop.push(gTeams[1]);
+                if (gTeams.length >= 3) runnerUpsAndThirds.push(gTeams[2]);
+            });
+
+            // If 5 groups (10 teams qualify directly), pick best 2 third-places to make 12 teams for Knockout 1
+            runnerUpsAndThirds.sort((x, y) => {
+                if (y.pts !== x.pts) return y.pts - x.pts;
+                return (y.setsWon - y.setsLost) - (x.setsWon - x.setsLost);
+            });
+
+            let totalQualified = [...qualifiedTop];
+            // If needed to round up to 12 or 8
+            if (qualifiedTop.length === 10 && runnerUpsAndThirds.length >= 2) {
+                totalQualified.push(runnerUpsAndThirds[0], runnerUpsAndThirds[1]);
+            }
+
+            qualifiedListContainer.innerHTML = totalQualified.map(t => `
+                <div class="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg font-bold text-slate-800 shadow-xs">
+                    <img src="${t.logo}" class="w-4 h-4 rounded-full" alt="${t.name}">
+                    <span>${t.name}</span>
+                </div>
+            `).join('');
+
+            // Render Bracket Stages
+            const knockoutMatches = appState.matches.filter(m => m.stage !== 'group');
+
+            if (knockoutMatches.length === 0) {
+                bracketTreeContainer.innerHTML = `
+                    <div class="text-center py-6 text-slate-400 text-xs">
+                        پس از اتمام مرحله گروهی، مسابقات مرحله حذفی به صورت خودکار در این بخش نمایش داده می‌شوند.
+                    </div>
+                `;
+                return;
+            }
+
+            // Group by knockout stage
+            const stages = ['knockout_1', 'knockout_2', 'semi', 'final'];
+            bracketTreeContainer.innerHTML = stages.map(stg => {
+                const stageMatches = knockoutMatches.filter(m => m.stage === stg);
+                if (stageMatches.length === 0) return '';
+
+                let title = getStageLabel(stg);
+
+                return `
+                    <div class="flex-1 min-w-[180px] flex flex-col justify-around gap-4">
+                        <div class="text-center font-black text-xs text-brand-700 bg-brand-50 py-1.5 px-3 rounded-lg border border-brand-200">
+                            ${title}
+                        </div>
+
+                        ${stageMatches.map(m => {
+                            const teamA = appState.teams.find(t => t.id === m.teamAId) || { name: 'تیم نامشخص', logo: DEFAULT_LOGOS[0] };
+                            const teamB = appState.teams.find(t => t.id === m.teamBId) || { name: 'تیم نامشخص', logo: DEFAULT_LOGOS[1] };
+                            
+                            let setsA = 0, setsB = 0;
+                            if (m.setScores) {
+                                m.setScores.forEach(s => {
+                                    if (s.a > s.b) setsA++;
+                                    else if (s.b > s.a) setsB++;
+                                });
+                            }
+
+                            return `
+                                <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-2 shadow-xs">
+                                    <div class="flex items-center justify-between text-xs ${setsA > setsB ? 'font-black text-emerald-600' : 'text-slate-700'}">
+                                        <div class="flex items-center gap-1.5 truncate">
+                                            <img src="${teamA.logo}" class="w-5 h-5 rounded-full" alt="${teamA.name}">
+                                            <span class="truncate">${teamA.name}</span>
+                                        </div>
+                                        <span class="bg-white border px-1.5 rounded">${convertToPersianDigits(setsA)}</span>
+                                    </div>
+
+                                    <div class="flex items-center justify-between text-xs ${setsB > setsA ? 'font-black text-emerald-600' : 'text-slate-700'}">
+                                        <div class="flex items-center gap-1.5 truncate">
+                                            <img src="${teamB.logo}" class="w-5 h-5 rounded-full" alt="${teamB.name}">
+                                            <span class="truncate">${teamB.name}</span>
+                                        </div>
+                                        <span class="bg-white border px-1.5 rounded">${convertToPersianDigits(setsB)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderPublicNews() {
+            const container = document.getElementById('public-news-container');
+            if (appState.news.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400">اطلاعیه‌ای ثبت نشده است.</p>`;
+                return;
+            }
+
+            container.innerHTML = appState.news.map(n => `
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                    <div class="flex items-center justify-between mb-1">
+                        <h4 class="font-bold text-slate-900 text-xs sm:text-sm">${n.title}</h4>
+                        <span class="text-[10px] text-slate-400">${convertToPersianDigits(n.date)}</span>
+                    </div>
+                    <p class="text-xs text-slate-600 leading-relaxed">${n.body}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderStatsSummary() {
+            document.getElementById('stat-total-teams').textContent = convertToPersianDigits(appState.teams.length);
+            document.getElementById('stat-total-matches').textContent = convertToPersianDigits(appState.matches.length);
+            
+            const played = appState.matches.filter(m => m.isFinished);
+            document.getElementById('stat-played-matches').textContent = convertToPersianDigits(played.length);
+
+            let totalSets = 0;
+            played.forEach(m => {
+                if (m.setScores) totalSets += m.setScores.length;
+            });
+            document.getElementById('stat-sets-played').textContent = convertToPersianDigits(totalSets);
+        }
+
+
+        // --- Admin Configurations Logic ---
+        function renderAdminConfig() {
+            document.getElementById('input-total-teams').value = appState.config.totalTeams;
+            document.getElementById('input-num-groups').value = appState.config.numGroups;
+
+            const listContainer = document.getElementById('admin-teams-list-container');
+            listContainer.innerHTML = appState.teams.map((t, idx) => `
+                <div class="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    <img src="${t.logo}" class="w-9 h-9 rounded-full border object-cover shrink-0" alt="Logo">
+                    <div class="flex-1 space-y-1">
+                        <input type="text" value="${t.name}" onchange="updateTeamName('${t.id}', this.value)" class="w-full px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-brand-500 font-bold text-slate-800">
+                        <input type="text" value="${t.logo}" onchange="updateTeamLogo('${t.id}', this.value)" class="w-full px-2 py-1 text-[10px] border rounded text-slate-400 dir-ltr font-mono" placeholder="URL لوگو">
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function saveTournamentStructure(e) {
+            e.preventDefault();
+            const total = parseInt(document.getElementById('input-total-teams').value) || 20;
+            const groups = parseInt(document.getElementById('input-num-groups').value) || 5;
+
+            appState.config.totalTeams = total;
+            appState.config.numGroups = groups;
+            appState.config.teamsPerGroup = Math.ceil(total / groups);
+
+            // Re-generate teams if count changed
+            appState.teams = [];
+            for (let i = 1; i <= total; i++) {
+                const gIndex = Math.floor((i - 1) / appState.config.teamsPerGroup);
+                appState.teams.push({
+                    id: `team_${i}`,
+                    name: `تیم ${i} گلبهار`,
+                    logo: DEFAULT_LOGOS[(i - 1) % DEFAULT_LOGOS.length],
+                    groupIndex: Math.min(gIndex, groups - 1)
+                });
+            }
+
+            saveAppState();
+            alert('ساختار تورنمنت با موفقیت بروزرسانی شد.');
+        }
+
+        function updateTeamName(id, val) {
+            const t = appState.teams.find(x => x.id === id);
+            if (t) {
+                t.name = val;
+                saveAppState();
+            }
+        }
+
+        function updateTeamLogo(id, val) {
+            const t = appState.teams.find(x => x.id === id);
+            if (t) {
+                t.logo = val;
+                saveAppState();
+            }
+        }
+
+        // --- Interactive Drag & Drop Draw (PES 2021 Style) ---
+        function renderAdminPESDrawBoard() {
+            const board = document.getElementById('pes-draw-board');
+            const numGroups = appState.config.numGroups;
+
+            board.innerHTML = '';
+
+            for (let g = 0; g < numGroups; g++) {
+                const groupName = String.fromCharCode(65 + g);
+                const teamsInGroup = appState.teams.filter(t => t.groupIndex === g);
+
+                const groupDiv = document.createElement('div');
+                groupDiv.className = "bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 flex flex-col min-h-[220px]";
+                groupDiv.dataset.groupIndex = g;
+
+                // Drag over events
+                groupDiv.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    groupDiv.classList.add('drag-over');
+                });
+                groupDiv.addEventListener('dragleave', () => {
+                    groupDiv.classList.remove('drag-over');
+                });
+                groupDiv.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    groupDiv.classList.remove('drag-over');
+                    const teamId = e.dataTransfer.getData('text/plain');
+                    moveTeamToGroup(teamId, g);
+                });
+
+                groupDiv.innerHTML = `
+                    <div class="font-extrabold text-xs text-slate-800 bg-white border px-3 py-1.5 rounded-xl mb-3 flex items-center justify-between shadow-xs">
+                        <span>گروه ${groupName}</span>
+                        <span class="text-[10px] text-slate-400 font-normal">${convertToPersianDigits(teamsInGroup.length)} تیم</span>
+                    </div>
+                    <div class="space-y-2 flex-1 group-drop-zone">
+                        ${teamsInGroup.map(t => `
+                            <div id="drag_${t.id}" draggable="true" ondragstart="handleDragStart(event, '${t.id}')" ondragend="handleDragEnd(event)" class="bg-white border border-slate-200 p-2 rounded-xl flex items-center justify-between cursor-grab active:cursor-grabbing hover:border-brand-500 transition shadow-xs touch-action-none">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-grip-vertical text-slate-300 text-xs"></i>
+                                    <img src="${t.logo}" class="w-6 h-6 rounded-full border" alt="">
+                                    <span class="text-xs font-bold text-slate-800">${t.name}</span>
+                                </div>
+                                <select onchange="moveTeamToGroup('${t.id}', parseInt(this.value))" class="text-[10px] border rounded bg-slate-50 p-1">
+                                    ${Array.from({length: numGroups}).map((_, targetG) => `
+                                        <option value="${targetG}" ${targetG === g ? 'selected' : ''}>انتقال به ${String.fromCharCode(65 + targetG)}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                board.appendChild(groupDiv);
+            }
+        }
+
+        function handleDragStart(e, teamId) {
+            e.dataTransfer.setData('text/plain', teamId);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function moveTeamToGroup(teamId, targetGroupIndex) {
+            const t = appState.teams.find(x => x.id === teamId);
+            if (t) {
+                t.groupIndex = targetGroupIndex;
+                saveAppState();
+            }
+        }
+
+        function autoRandomDraw() {
+            // Shuffle teams randomly across groups
+            const shuffled = [...appState.teams].sort(() => Math.random() - 0.5);
+            const numGroups = appState.config.numGroups;
+
+            shuffled.forEach((t, idx) => {
+                t.groupIndex = idx % numGroups;
+            });
+
+            saveAppState();
+            alert('قرعه‌کشی خودکار تصادفی با موفقیت انجام شد.');
+        }
+
+        // Generate Group Fixtures Round-Robin
+        function generateGroupMatchesSchedule() {
+            const todayStr = getTodayJalaliString();
+            appState.matches = []; // reset matches
+
+            const numGroups = appState.config.numGroups;
+
+            for (let g = 0; g < numGroups; g++) {
+                const groupTeams = appState.teams.filter(t => t.groupIndex === g);
+                
+                // Round robin pairing
+                for (let i = 0; i < groupTeams.length; i++) {
+                    for (let j = i + 1; j < groupTeams.length; j++) {
+                        appState.matches.push({
+                            id: `m_g${g}_${i}_${j}`,
+                            stage: 'group',
+                            groupIndex: g,
+                            teamAId: groupTeams[i].id,
+                            teamBId: groupTeams[j].id,
+                            dateJalali: todayStr,
+                            time24: '18:00',
+                            court: 'سالن اصلی گلبهار',
+                            setScores: [{a:0, b:0}, {a:0, b:0}],
+                            isFinished: false,
+                            winnerId: null
+                        });
+                    }
+                }
+            }
+
+            // Also create initial knockout placeholder matches (Calculation for First Knockout Round)
+            for (let k = 1; k <= 4; k++) {
+                appState.matches.push({
+                    id: `m_k1_${k}`,
+                    stage: 'knockout_1',
+                    groupIndex: null,
+                    teamAId: appState.teams[0]?.id || 't1',
+                    teamBId: appState.teams[1]?.id || 't2',
+                    dateJalali: todayStr,
+                    time24: '20:00',
+                    court: 'سالن اصلی گلبهار',
+                    setScores: [{a:0, b:0}, {a:0, b:0}],
+                    isFinished: false,
+                    winnerId: null
+                });
+            }
+
+            saveAppState();
+            alert('جدول کامل بازی‌های مرحله گروهی و حذفی ایجاد گردید.');
+            switchAdminSubtab('schedule');
+        }
+
+
+        // --- Admin Schedule Calendar Controls ---
+        function renderAdminScheduleList() {
+            const container = document.getElementById('admin-schedule-list');
+            if (appState.matches.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400">ابتدا در بخش قرعه‌کشی، جدول بازی‌ها را بسازید.</p>`;
+                return;
+            }
+
+            container.innerHTML = appState.matches.map(m => {
+                const teamA = appState.teams.find(t => t.id === m.teamAId) || { name: 'تیم A' };
+                const teamB = appState.teams.find(t => t.id === m.teamBId) || { name: 'تیم B' };
+                const stageLabel = getStageLabel(m.stage, m.groupIndex);
+
+                return `
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                        <div class="font-bold text-slate-800 flex items-center gap-2">
+                            <span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">${stageLabel}</span>
+                            <span>${teamA.name}</span>
+                            <span class="text-slate-400">برابر</span>
+                            <span>${teamB.name}</span>
+                        </div>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block">تاریخ شمسی</label>
+                                <input type="text" value="${m.dateJalali || ''}" onchange="updateMatchSchedule('${m.id}', 'dateJalali', this.value)" class="px-2 py-1 border rounded text-xs text-center font-mono w-28">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block">ساعت (۲۴ساعته)</label>
+                                <input type="text" value="${m.time24 || ''}" onchange="updateMatchSchedule('${m.id}', 'time24', this.value)" class="px-2 py-1 border rounded text-xs text-center font-mono w-20" placeholder="18:30">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateMatchSchedule(matchId, key, val) {
+            const m = appState.matches.find(x => x.id === matchId);
+            if (m) {
+                m[key] = val;
+                saveAppState();
+            }
+        }
+
+        // --- Admin Match Results Controller ---
+        function renderAdminResultsList() {
+            const container = document.getElementById('admin-results-list');
+            if (appState.matches.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400">مسابقه‌ای برای ثبت نتیجه وجود ندارد.</p>`;
+                return;
+            }
+
+            // Chronological Sorting by match date/time
+            const sortedMatches = [...appState.matches].sort((a, b) => {
+                return (a.dateJalali || '').localeCompare(b.dateJalali || '');
+            });
+
+            container.innerHTML = sortedMatches.map(m => {
+                const teamA = appState.teams.find(t => t.id === m.teamAId) || { name: 'تیم A', logo: DEFAULT_LOGOS[0] };
+                const teamB = appState.teams.find(t => t.id === m.teamBId) || { name: 'تیم B', logo: DEFAULT_LOGOS[1] };
+                const stageLabel = getStageLabel(m.stage, m.groupIndex);
+
+                const set1 = m.setScores[0] || {a:0, b:0};
+                const set2 = m.setScores[1] || {a:0, b:0};
+                const set3 = m.setScores[2] || {a:0, b:0};
+
+                return `
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3">
+                        <div class="flex items-center justify-between border-b pb-2 text-xs">
+                            <span class="font-bold text-brand-700">${stageLabel}</span>
+                            <span class="text-slate-400">${convertToPersianDigits(m.dateJalali)} - ${convertToPersianDigits(m.time24)}</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-7 items-center gap-2">
+                            <div class="sm:col-span-2 font-bold text-slate-800 text-xs flex items-center gap-2">
+                                <img src="${teamA.logo}" class="w-6 h-6 rounded-full border" alt="">
+                                <span>${teamA.name}</span>
+                            </div>
+
+                            <!-- Set inputs -->
+                            <div class="sm:col-span-3 flex items-center justify-center gap-2 text-xs">
+                                <div class="text-center">
+                                    <span class="text-[9px] text-slate-400 block">ست اول</span>
+                                    <div class="flex items-center gap-1 dir-ltr">
+                                        <input type="number" value="${set1.a}" onchange="updateMatchScore('${m.id}', 0, 'a', this.value)" class="w-9 px-1 py-1 text-center border rounded font-bold">
+                                        <span>:</span>
+                                        <input type="number" value="${set1.b}" onchange="updateMatchScore('${m.id}', 0, 'b', this.value)" class="w-9 px-1 py-1 text-center border rounded font-bold">
+                                    </div>
+                                </div>
+
+                                <div class="text-center">
+                                    <span class="text-[9px] text-slate-400 block">ست دوم</span>
+                                    <div class="flex items-center gap-1 dir-ltr">
+                                        <input type="number" value="${set2.a}" onchange="updateMatchScore('${m.id}', 1, 'a', this.value)" class="w-9 px-1 py-1 text-center border rounded font-bold">
+                                        <span>:</span>
+                                        <input type="number" value="${set2.b}" onchange="updateMatchScore('${m.id}', 1, 'b', this.value)" class="w-9 px-1 py-1 text-center border rounded font-bold">
+                                    </div>
+                                </div>
+
+                                <div class="text-center">
+                                    <span class="text-[9px] text-slate-400 block">ست سوم</span>
+                                    <div class="flex items-center gap-1 dir-ltr">
+                                        <input type="number" value="${set3.a}" onchange="updateMatchScore('${m.id}', 2, 'a', this.value)" class="w-9 px-1 py-1 text-center border rounded font-bold">
+                                        <span>:</span>
+                                        <input type="number" value="${set3.b}" onchange="updateMatchScore('${m.id}', 2, 'b', this.value)" class="w-9 px-1 py-1 text-center border rounded font-bold">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="sm:col-span-2 font-bold text-slate-800 text-xs flex items-center justify-end gap-2">
+                                <span>${teamB.name}</span>
+                                <img src="${teamB.logo}" class="w-6 h-6 rounded-full border" alt="">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2 border-t text-xs">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                                <input type="checkbox" ${m.isFinished ? 'checked' : ''} onchange="toggleMatchFinished('${m.id}', this.checked)" class="w-4 h-4 text-brand-600 rounded">
+                                <span>پایان مسابقه و ثبت در جدول</span>
+                            </label>
+                            ${m.isFinished ? `<span class="text-emerald-600 font-bold"><i class="fa-solid fa-circle-check ml-1"></i>نهایی‌شده</span>` : `<span class="text-amber-500 font-semibold">در حال برگزاری/پیش‌رو</span>`}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateMatchScore(matchId, setIdx, teamKey, val) {
+            const m = appState.matches.find(x => x.id === matchId);
+            if (m) {
+                if (!m.setScores) m.setScores = [];
+                while (m.setScores.length <= setIdx) {
+                    m.setScores.push({a:0, b:0});
+                }
+                m.setScores[setIdx][teamKey] = parseInt(val) || 0;
+                saveAppState();
+            }
+        }
+
+        function toggleMatchFinished(matchId, isChecked) {
+            const m = appState.matches.find(x => x.id === matchId);
+            if (m) {
+                m.isFinished = isChecked;
+                saveAppState();
+            }
+        }
+
+
+        // --- Admin News Manager ---
+        function renderAdminNewsList() {
+            const container = document.getElementById('admin-news-list');
+            if (appState.news.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400">اطلاعیه‌ای وجود ندارد.</p>`;
+                return;
+            }
+
+            container.innerHTML = appState.news.map(n => `
+                <div class="p-3 bg-slate-50 border rounded-xl flex items-center justify-between text-xs">
+                    <div>
+                        <h4 class="font-bold text-slate-800">${n.title}</h4>
+                        <p class="text-slate-500 text-[11px]">${n.body}</p>
+                    </div>
+                    <button onclick="deleteAnnouncement('${n.id}')" class="text-rose-500 hover:text-rose-700 p-1">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addNewAnnouncement(e) {
+            e.preventDefault();
+            const title = document.getElementById('news-title').value;
+            const body = document.getElementById('news-body').value;
+            const date = getTodayJalaliString();
+
+            appState.news.unshift({
+                id: `n_${Date.now()}`,
+                title,
+                body,
+                date
+            });
+
+            document.getElementById('news-title').value = '';
+            document.getElementById('news-body').value = '';
+
+            saveAppState();
+        }
+
+        function deleteAnnouncement(id) {
+            appState.news = appState.news.filter(x => x.id !== id);
+            saveAppState();
+        }
+
+        function resetDataPrompt() {
+            if (confirm('آیا از بازنشانی کلی داده‌های مسابقات والیبال گلبهار اطمینان دارید؟')) {
+                localStorage.removeItem('golbahar_volleyball_state');
+                initDefaultMockState();
+                renderAllViews();
+            }
+        }
+
+
+        // --- Team Modal Details ---
+        function openTeamModal(teamId) {
+            const team = appState.teams.find(t => t.id === teamId);
+            if (!team) return;
+
+            document.getElementById('team-modal-logo').src = team.logo;
+            document.getElementById('team-modal-name').textContent = team.name;
+            document.getElementById('team-modal-group').textContent = `گروه ${String.fromCharCode(65 + team.groupIndex)}`;
+
+            // Calculate team dynamic stats
+            let played = 0, won = 0, lost = 0, pts = 0;
+            const teamMatches = appState.matches.filter(m => m.teamAId === teamId || m.teamBId === teamId);
+
+            teamMatches.forEach(m => {
+                if (m.isFinished) {
+                    played++;
+                    let setsA = 0, setsB = 0;
+                    m.setScores.forEach(s => {
+                        if (s.a > s.b) setsA++;
+                        else if (s.b > s.a) setsB++;
+                    });
+
+                    const isA = (m.teamAId === teamId);
+                    const mySets = isA ? setsA : setsB;
+                    const oppSets = isA ? setsB : setsA;
+
+                    if (mySets > oppSets) {
+                        won++;
+                        pts += (mySets === 2 && oppSets === 0) ? 3 : 2;
+                    } else {
+                        lost++;
+                        pts += (oppSets === 2 && mySets === 1) ? 1 : 0;
+                    }
+                }
+            });
+
+            document.getElementById('team-modal-played').textContent = convertToPersianDigits(played);
+            document.getElementById('team-modal-won').textContent = convertToPersianDigits(won);
+            document.getElementById('team-modal-lost').textContent = convertToPersianDigits(lost);
+            document.getElementById('team-modal-pts').textContent = convertToPersianDigits(pts);
+
+            // Matches list for team
+            const matchesContainer = document.getElementById('team-modal-matches');
+            if (teamMatches.length === 0) {
+                matchesContainer.innerHTML = `<p class="text-slate-400">مسابقه‌ای یافت نشد.</p>`;
+            } else {
+                matchesContainer.innerHTML = teamMatches.map(m => {
+                    const oppId = m.teamAId === teamId ? m.teamBId : m.teamAId;
+                    const opponent = appState.teams.find(t => t.id === oppId) || { name: 'حریف' };
+                    
+                    return `
+                        <div class="p-2 bg-slate-50 border rounded-lg flex items-center justify-between">
+                            <span>مقابل ${opponent.name}</span>
+                            <span class="font-bold">${m.isFinished ? 'انجام‌شده' : convertToPersianDigits(m.dateJalali)}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('team-modal').classList.remove('hidden');
+        }
+
+        function closeTeamModal() {
+            document.getElementById('team-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+  </html>
